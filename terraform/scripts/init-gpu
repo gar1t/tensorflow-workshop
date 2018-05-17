@@ -52,7 +52,6 @@ conda create --name $ENV python=$ENV_PYTHON_VER --yes
 # Guild
 
 if [ ! -e guild ]; then
-
     # Guild repo
 
     git clone https://github.com/guildai/guild.git
@@ -80,6 +79,10 @@ if [ ! -e guild ]; then
     source <(grep -e PATH= -e LD_LIBRARY_PATH= ~/.bashrc)
 
     (source activate $ENV && guild check --tests)
+else
+    # Update to latest from repo
+
+    (cd guild && git pull --rebase)
 fi
 
 # Guild config
@@ -97,7 +100,9 @@ EOF
 # workshop repo
 
 if [ ! -e tensorflow-workshop ]; then
-   git clone https://github.com/gar1t/tensorflow-workshop.git workshop
+    git clone https://github.com/gar1t/tensorflow-workshop.git workshop
+else
+    (cd workshop && git pull --rebase)
 fi
 
 # packages required by workshop project

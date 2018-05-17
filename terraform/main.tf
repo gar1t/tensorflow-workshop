@@ -44,7 +44,8 @@ module "image-proxy" {
 module "gpu-us-east-1" {
   source = "./gpu"
   region = "us-east-1"
-  ami = "ami-8024aaff"
+  # ami = "ami-8024aaff"
+  ami = "ami-870a99f8"
   standard_count = "${lookup(var.us_east_1_standard_gpu_counts, var.profile)}"
   large_count = "${lookup(var.us_east_1_large_gpu_counts, var.profile)}"
 }
