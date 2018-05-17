@@ -1,0 +1,147 @@
+#!/bin/bash -xe
+
+# NOTE: We'd typically want -u here, however we do a lot of sourcing
+# in this script and some of the sourced files assume previously
+# defined variables.
+
+set +u
+
+ENV=workshop
+ENV_PYTHON_VER=3.6
+GUILD_BRANCH=0.4
+
+# stop apt-daily from interfering with init (thanks to https://bit.ly/2rDbCga)
+
+kill-service() {
+    sudo systemctl stop $1
+    sudo systemctl disable $1
+    sudo systemctl kill --kill-who=all $1 || true
+    while ! (systemctl list-units --all $1 | fgrep -q dead)
+    do
+        sleep 1;
+    done
+}
+
+kill-service apt-daily.service
+kill-service apt-daily-upgrade.service
+
+ps -ef | grep apt
+
+# system upgrade
+
+sudo apt-get update -y
+ps -ef | grep apt
+sudo apt-get upgrade -y
+
+# set PATH from bashrc so we can run conda activate
+
+source <(grep -e PATH= ~/.bashrc)
+
+# create conda env
+
+conda create --name $ENV python=$ENV_PYTHON_VER --yes
+
+# upgrade pip
+
+(source activate $ENV && pip install --upgrade pip)
+
+# GPU enabled tensorflow
+
+(source activate $ENV && pip install --upgrade tensorflow-gpu)
+
+# Guild
+
+if [ ! -e guild ]; then
+
+    # Guild repo
+
+    git clone https://github.com/guildai/guild.git
+    (cd guild && git checkout $GUILD_BRANCH)
+
+    # required packages
+
+    (source activate $ENV && pip install -r guild/requirements.txt)
+
+    # npm
+
+    wget -qO- https://deb.nodesource.com/setup_8.x | sudo bash -
+    sudo apt-get install nodejs -y
+
+    # build Guild
+
+    (cd guild && make)
+
+    # add Guild to path
+
+    echo "export PATH=~/guild/guild/scripts:\$PATH" >> ~/.bashrc
+
+    # check Guild install
+
+    source <(grep -e PATH= -e LD_LIBRARY_PATH= ~/.bashrc)
+
+    (source activate $ENV && guild check --tests)
+fi
+
+# Guild config
+
+mkdir ~/.guild
+cat > ~/.guild/config.yml << EOF
+remotes:
+  shared:
+    type: ssh
+    description: Shared server
+    host: image-proxy.guild.ai
+    guild-home: .guild
+EOF
+
+# workshop repo
+
+if [ ! -e tensorflow-workshop ]; then
+   git clone https://github.com/gar1t/tensorflow-workshop.git workshop
+fi
+
+# packages required by workshop project
+
+(source activate $ENV && pip install cython)
+(source activate $ENV && pip install -r workshop/src/requirements.txt)
+
+# shellinabox
+
+sudo apt-get install shellinabox -y
+
+sudo tee /etc/default/shellinabox > /dev/null << EOF
+SHELLINABOX_DAEMON_START=1
+SHELLINABOX_PORT=443
+SHELLINABOX_ARGS="--no-beep"
+EOF
+
+sudo systemctl restart shellinabox
+
+# ffmpeg
+
+sudo apt-get install -y ffmpeg
+
+# enable password auth for user login via shellinabox
+
+sudo sed -i \
+     's/PasswordAuthentication no/PasswordAuthentication yes/' \
+     /etc/ssh/sshd_config
+sudo systemctl restart sshd
+
+# ssh config to access image-proxy (relies on init-gpu-secrets to
+# install image-proxy.pem)
+
+cat > ~/.ssh/config << EOF
+Host image-proxy.guild.ai
+     User ubuntu
+     IdentityFile ~/.ssh/image-proxy.pem
+EOF
+
+# login splash
+
+curl -L https://raw.githubusercontent.com/gar1t/tensorflow-workshop/master/terraform/00-header \
+  | sudo tee /etc/update-motd.d/00-header
+sudo rm -f /etc/update-motd.d/10-help-text
+sudo rm -f /etc/update-motd.d/51-cloudguest
+sudo rm -f /etc/update-motd.d/91-release-upgrade
+sudo rm -f /etc/update-motd.d/90-updates-available

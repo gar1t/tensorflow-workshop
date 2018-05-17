@@ -1,0 +1,198 @@
+- model: pets
+  description: Pet training exercise from Google object detection getting started
+  operations:
+    prepare-data:
+      description: Prepare Oxford-IIIT pets dataset for training
+      main: >
+        object_detection/dataset_tools/create_pet_tf_record
+          --label_map_path object_detection/data/pet_label_map.pbtxt
+          --nofaces_only
+          --data_dir .
+          --output_dir .
+      requires:
+        - models-lib
+        - pets-dataset
+    train:
+      description: Train the object detector
+      pre-process: >
+        sed
+          "s|PATH_TO_BE_CONFIGURED/pet_label_map.pbtxt|object_detection/data/pet_label_map.pbtxt|g;
+           s|PATH_TO_BE_CONFIGURED/model.ckpt|faster_rcnn_resnet101_coco_11_06_2017/model.ckpt|g;
+           s|PATH_TO_BE_CONFIGURED/pet_train.record|data/pet_train.record|g"
+          object_detection/samples/configs/faster_rcnn_resnet101_pets.config >
+          pipeline.config.in
+      main: >
+        object_detection.train
+          --train_dir .
+          --pipeline_config_path pipeline.config.in
+      requires:
+        - models-lib
+        - prepared-data
+        - faster-rcnn-resnet101-coco
+    finetune:
+      description: Train the object detector
+      pre-process: >
+        sed
+          "s|PATH_TO_BE_CONFIGURED/pet_label_map.pbtxt|object_detection/data/pet_label_map.pbtxt|g;
+           s|PATH_TO_BE_CONFIGURED/model.ckpt|model/model.ckpt|g;
+           s|PATH_TO_BE_CONFIGURED/pet_train.record|data/pet_train.record|g"
+          $PIPELINE_TEMPLATE > pipeline.config
+      main: >
+        object_detection.train
+          --train_dir .
+          --pipeline_config_path pipeline.config
+      flags:
+        pipeline:
+          description: Pipeline configuration used for training
+          arg-skip: yes
+          default: faster-rcnn-resnet101
+          choices:
+            - value: faster-rcnn-resnet101
+              description: Faster RCNN detector with ResNet-101 backbone
+              args:
+                pipeline_template: object_detection/samples/configs/faster_rcnn_resnet101_pets.config
+      requires:
+        - models-lib
+        - prepared-data
+        - ${pipeline}-coco
+    evaluate:
+      description: Evaluate a trained object detector
+      pre-process: >
+        sed
+          "s|PATH_TO_BE_CONFIGURED/pet_label_map.pbtxt|object_detection/data/pet_label_map.pbtxt|g;
+           s|PATH_TO_BE_CONFIGURED/pet_val.record|data/pet_val.record|g"
+          object_detection/samples/configs/faster_rcnn_resnet101_pets.config >
+          pipeline.config.in
+      main: >
+        object_detection.eval
+          --checkpoint_dir model
+          --eval_dir .
+          --pipeline_config_path pipeline.config.in
+          --run_once
+      requires:
+        - models-lib
+        - trained-model
+        - prepared-data
+  resources:
+    models-lib:
+      description: TensorFlow models Python library
+      sources:
+        # Using slightly older version of models to avoid having to upgrade protoc - refer
+        # to https://github.com/tensorflow/models/issues/4002 for background.
+        - url: https://github.com/tensorflow/models/archive/490813bdb3499290633919a9867eb0bb6d346d87.zip
+          sha256: 32f2035edba538357f64fed0ce8d276e022b51a6281de7d01123cb21ab4d0286
+          select:
+            - models-490813bdb3499290633919a9867eb0bb6d346d87/research/object_detection
+            - models-490813bdb3499290633919a9867eb0bb6d346d87/research/slim/deployment
+            - models-490813bdb3499290633919a9867eb0bb6d346d87/research/slim/nets
+          post-process: >
+            cd models-490813bdb3499290633919a9867eb0bb6d346d87/research &&
+            protoc object_detection/protos/*.proto --python_out . &&
+            patch -tN -p0 -i $RESOURCE_DIR/object_detection.patch
+    pets-dataset:
+      description: Oxford-IIIT pets dataset
+      sources:
+        - url: http://www.robots.ox.ac.uk/~vgg/data/pets/data/images.tar.gz
+          sha256: 67195c5e1c01f1ab5f9b6a5d22b8c27a580d896ece458917e61d459337fa318d
+        - url: http://www.robots.ox.ac.uk/~vgg/data/pets/data/annotations.tar.gz
+          sha256: 52425fb6de5c424942b7626b428656fcbd798db970a937df61750c0f1d358e91
+    faster-rcnn-resnet101-coco:
+      description: Pretrained ResNet-101 model on COCO
+      path: model
+      sources:
+        - url: http://storage.googleapis.com/download.tensorflow.org/models/object_detection/faster_rcnn_resnet101_coco_11_06_2017.tar.gz
+          sha256: f08a8475b1abae663bef51234545baa8c44972a8c16cfcaea0a41330426fed02
+          select: faster_rcnn_resnet101_coco_11_06_2017/.*
+    prepared-data:
+      description: Prepared pets data
+      path: data
+      sources:
+        - operation: prepare-data
+          select: .*\.record
+    trained-model:
+      description: Trained model (checkpoint)
+      path: model
+      sources:
+        - operation: train
+          select:
+            - checkpoint
+            - model\.ckpt.*
+            - graph\.pb.*
+
+- model: catscan
+  description: An image detector for missing cats using RetinaNet in Keras
+  operations:
+    snapshot:
+      description: Acquire an image from a camera
+      main: snapshot --output-dir images
+      flags:
+        cam-user:
+          description: Authorized camera user name
+          default: admin
+        cam-password:
+          description: Authorized camera user password
+          default: Admin123
+        cam-host:
+          description: Camera hostname or IP address
+          default: 192.168.1.108
+        cam-port:
+          description: Camera port
+          default: 80
+    detect:
+      description: Detect images using a trained model
+      main: detect --object-class cat --images images/*.jpg --output-dir detected
+      flags:
+        detector:
+          description: Detector used for segmentation and classification
+          default: mrcnn
+          choices:
+            - value: retinanet
+              description: RetinaNet detector
+              args:
+                model-path: resnet50_coco_best_v2.0.2.h5
+            - value: mrcnn
+              description: Mask R-CNN detector
+              args:
+                model-path: mask_rcnn_coco.h5
+      requires:
+        - ${detector}
+        - images
+    scan:
+      description: Continually scan for images and detect an object class in them
+      main: scan
+      flags:
+        config:
+          description: Config used for scanning
+      requires:
+        - mrcnn
+        - retinanet
+  resources:
+    mrcnn:
+      description: Mask R-CNN detector in Keras
+      sources:
+        - url: https://github.com/matterport/Mask_RCNN/archive/2f9a6d5925bc407a53bb1e12ec7860edb88f1b99.zip
+          sha256: 21bcd72b6612dd6096e7d9f087f5c2514a31f4f307b885c8cdc0687dd9007a14
+          select:
+            - Mask_RCNN-2f9a6d5925bc407a53bb1e12ec7860edb88f1b99/mrcnn
+            - Mask_RCNN-2f9a6d5925bc407a53bb1e12ec7860edb88f1b99/samples
+        - url: https://github.com/matterport/Mask_RCNN/releases/download/v2.0/mask_rcnn_coco.h5
+          sha256: ab8f779d74d790abe4fcf3f60ab368129df5ee866262c439c6bae5af13afaf56
+      references:
+        - https://github.com/matterport/Mask_RCNN
+        - https://arxiv.org/abs/1703.06870
+    retinanet:
+      description: RetinaNet detector in Keras
+      sources:
+        - url: https://github.com/fizyr/keras-retinanet/archive/f333ea710fa7eee79577840f56de45655998f34b.zip
+          sha256: 150ac45d2a75e0fdb7d743e7bd26ecec87cb400fff750ba76f864a9075fb4a0d
+          select: keras-retinanet-f333ea710fa7eee79577840f56de45655998f34b/keras_retinanet
+        - url: https://github.com/fizyr/keras-retinanet/releases/download/0.2/resnet50_coco_best_v2.0.2.h5
+          sha256: edf871ded0e8baf093616985231c6fe8944672aeda22d2c8bf190b657866b908
+      references:
+        - https://github.com/fizyr/keras-retinanet
+        - https://arxiv.org/abs/1708.02002
+    images:
+      description: Images captured from an operation
+      sources:
+        - operation: snapshot
+          select: images

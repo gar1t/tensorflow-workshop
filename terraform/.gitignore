@@ -1,0 +1,5 @@
+credentials.tf
+.terraform*
+terraform.tfstate*
+*-secrets
+*.pem

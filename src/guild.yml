@@ -1,0 +1,451 @@
+# ===================================================================
+# Mixins
+# ===================================================================
+
+# -------------------------------------------------------------------
+# tf-detection-support
+# -------------------------------------------------------------------
+
+- config: tf-detection-support
+  description: >
+    Defines object-detection-lib resources, which is required for most
+    of the object detection operations.
+  resources:
+    object-detection-lib:
+      description: TensorFlow object detection library
+      sources:
+        # Using slightly older version of models (490813b - April 13, 2018)
+        # to avoid having to upgrade protoc - refer to
+        # https://github.com/tensorflow/models/issues/4002 for background.
+        - url: https://github.com/tensorflow/models/archive/490813bdb3499290633919a9867eb0bb6d346d87.zip
+          sha256: 32f2035edba538357f64fed0ce8d276e022b51a6281de7d01123cb21ab4d0286
+          select:
+            - models-490813bdb3499290633919a9867eb0bb6d346d87/research/object_detection
+            - models-490813bdb3499290633919a9867eb0bb6d346d87/research/slim/deployment
+            - models-490813bdb3499290633919a9867eb0bb6d346d87/research/slim/nets
+          # Compile protobuf modules and apply patch per
+          # https://github.com/tensorflow/models/issues/3705
+          post-process: >
+            cd models-490813bdb3499290633919a9867eb0bb6d346d87/research &&
+            protoc object_detection/protos/*.proto --python_out . &&
+            patch -tN -p0 -i $RESDEF_DIR/object_detection/fixes.patch
+
+# -------------------------------------------------------------------
+# image-collect-support
+# -------------------------------------------------------------------
+
+- config: image-collect-support
+  description: >
+    Defines an image collect operation and associated
+    resources. Extend to enable image collection for a model or
+    dataset.
+  operations:
+    collect:
+      description: Collect images
+      main: collect --save-dir images
+      flags:
+        use-proxy:
+          description: If yes, image proxy will be used for image snapshots
+          arg-name: use-image-proxy
+        port:
+          description: Port to run collection app on
+          default: 8002
+      stoppable: yes
+      requires:
+        - config
+  resources:
+    collected-images:
+      description: Images collected via collect operation
+      sources:
+        - operation: collect
+          select: images
+    config:
+      description: Configuration for collect operation
+      sources:
+        - config.json
+
+# -------------------------------------------------------------------
+# detect-support
+# -------------------------------------------------------------------
+
+- config: detect-support
+  description: >
+    Defines a detect operation, which applies a frozen inference graph
+    (i.e. an exported trained model) to images in a directory to
+    generate corresponding images (detect images) containing detected
+    and classified images. Apply to models that provide frozen
+    inference graphs, either by way of a pretrained model or an export
+    operation.
+  operations:
+    detect:
+      description: Use an exported model to detect image classes
+      main: >
+        detect
+          --images-dir images
+          --labels {{class-labels}}
+          --graph frozen_inference_graph.pb
+          --output-dir detected
+      flags:
+        skip-existing:
+          description: Skip already detected images
+      requires:
+        - object-detection-lib
+        - collected-images
+        - frozen-model
+        - class-labels
+
+# -------------------------------------------------------------------
+# tf-detection-model
+# -------------------------------------------------------------------
+
+- config: tf-detection-model
+  description: >
+    Defines the core operations associated with a TensorFlow object
+    detection model including finetune, evaluate, and export.
+  extends:
+    - tf-detection-support
+    - image-collect-support
+  operations:
+    finetune:
+      description: Fine tune an object detector
+      main: >
+        object_detection.train
+          --train_dir model
+          --pipeline_config_path {{pipeline-config}}
+      handle-keyboard-interrupt: yes
+      flags:
+        pretrained-model:
+          description: Type of pretrained model to use for fine tuning
+          arg-skip: yes
+          default: coco
+          choices:
+            - value: coco
+              description: Pretrained model using COCO dataset
+      requires:
+        - object-detection-lib
+        - prepared-data
+        - pipeline-config
+        - pretrained-model-${pretrained-model}
+    evaluate:
+      description: Evaluate a trained object detector
+      main: >
+        object_detection.eval
+          --checkpoint_dir model
+          --eval_dir .
+          --pipeline_config_path {{pipeline-config}}
+          --run_once
+      requires:
+        - object-detection-lib
+        - prepared-data
+        - pipeline-config
+        - trained-model
+    export:
+      description: Export a trained object detector to create a saved model and frozen graph
+      main: >
+        object_detection.export_inference_graph
+          --input_type image_tensor
+          --pipeline_config_path {{pipeline-config}}
+          --trained_checkpoint_prefix model/model.ckpt-${checkpoint-step}
+          --output_directory export
+      flags:
+        checkpoint-step:
+          description: >
+            Step of checkpoint to export
+
+            Checkpoints are generated by the finetune operation. List
+            available checkpoint files by running 'guild runs info -o
+            finetune -F'.
+
+            If there are no matching runs, run a finetune operation
+            first, select a generated checkpoint step, and re-run
+            export.
+
+          required: yes
+      requires:
+        - object-detection-lib
+        - pipeline-config
+        - trained-model
+  resources:
+    trained-model:
+      description: Model trained with the finetune operation
+      sources:
+        - operation: finetune
+          select: model
+    frozen-model:
+      description: Frozen inference graph generated by export operation
+      sources:
+        - operation: export
+          select: export/frozen_inference_graph.pb
+  extra:
+    scalar_map:
+      Losses/TotalLoss: loss
+      PascalBoxes_Precision/mAP@0.5IOU: val_acc
+
+# ===================================================================
+# MS COCO (90 class dataset of labeled general images)
+# ===================================================================
+
+# -------------------------------------------------------------------
+# coco-model
+# -------------------------------------------------------------------
+
+- config: coco-model
+  description: >
+    Defines the class-labels resource needed for models trained on the
+    MS COCO dataset.
+  extends:
+    - tf-detection-support
+    - detect-support
+    - image-collect-support
+  params:
+    class-labels: mscoco_label_map.pbtxt
+  resources:
+    class-labels:
+      description: Class labels proto for MS COCO dataset
+      sources:
+        - url: https://github.com/tensorflow/models/archive/490813bdb3499290633919a9867eb0bb6d346d87.zip
+          sha256: 32f2035edba538357f64fed0ce8d276e022b51a6281de7d01123cb21ab4d0286
+          select:
+            - models-490813bdb3499290633919a9867eb0bb6d346d87/research/object_detection/data/mscoco_label_map.pbtxt
+
+# -------------------------------------------------------------------
+# coco-mask-rcnn-resnet101
+# -------------------------------------------------------------------
+
+- model: coco-mask-rcnn-resnet101
+  description: Detector using Mask RCNN with ResNet-101 trained on MS COCO
+  extends: coco-model
+  resources:
+    frozen-model:
+      sources:
+        - url: http://download.tensorflow.org/models/object_detection/mask_rcnn_resnet101_atrous_coco_2018_01_28.tar.gz
+          sha256: 67ac8d5f0974753e9a5b04d36376e20b3be55b5dcd6ce43bc25aed6c5583709d
+          select: mask_rcnn_resnet101_atrous_coco_2018_01_28/frozen_inference_graph.pb
+
+# ===================================================================
+# Pets (37 class dataset of labled dog and cat images)
+# ===================================================================
+
+# -------------------------------------------------------------------
+# pets-dataset
+# -------------------------------------------------------------------
+
+- model: pets-dataset
+  description: Oxford-IIIT pets dataset
+  extends: tf-detection-support
+  operations:
+    prepare:
+      description: Prepare dataset for training
+      main: >
+        object_detection/dataset_tools/create_pet_tf_record
+          --label_map_path object_detection/data/pet_label_map.pbtxt
+          --nofaces_only
+          --data_dir .
+          --output_dir .
+      requires:
+        - object-detection-lib
+        - annotated-images
+  resources:
+    annotated-images:
+      description: Oxford-IIIT pets images with annotations
+      sources:
+        - url: https://s3.amazonaws.com/guild-pub/oxford-pets/images.tar.gz
+          sha256: 67195c5e1c01f1ab5f9b6a5d22b8c27a580d896ece458917e61d459337fa318d
+        - url: https://s3.amazonaws.com/guild-pub/oxford-pets/annotations.tar.gz
+          sha256: 52425fb6de5c424942b7626b428656fcbd798db970a937df61750c0f1d358e91
+
+# -------------------------------------------------------------------
+# pets-model
+# -------------------------------------------------------------------
+
+- config: pets-model
+  description: >
+    Defines the prepared-data and class-labels resources needed for
+    models supporting the Oxford-IIIT pets dataset.
+  extends: tf-detection-model
+  params:
+    class-labels: pet_label_map.pbtxt
+  resources:
+    prepared-data:
+      description: Oxford-IIIT dataset prepared for training
+      path: data
+      sources:
+        - operation: pets-dataset:prepare
+          select:
+            - pet_train.record
+            - pet_val.record
+    class-labels:
+      description: Class labels proto for cats
+      sources:
+        - url: https://github.com/tensorflow/models/archive/490813bdb3499290633919a9867eb0bb6d346d87.zip
+          sha256: 32f2035edba538357f64fed0ce8d276e022b51a6281de7d01123cb21ab4d0286
+          select:
+            - models-490813bdb3499290633919a9867eb0bb6d346d87/research/object_detection/data/pet_label_map.pbtxt
+
+# -------------------------------------------------------------------
+# pets-faster-rcnn-resnet101
+# -------------------------------------------------------------------
+
+- model: pets-faster-rcnn-resnet101
+  description: Pets detector using Faster RCNN with ResNet-101
+  extends: pets-model
+  params:
+    pipeline-config: faster_rcnn_resnet101_pets.config
+  operations:
+    finetune:
+      flags:
+        pretrained-model:
+          choices:
+            - value: coco
+              description: Pretrained model using COCO dataset
+            - value: kitti
+              description: Pretrained model using KITTI dataset
+  resources:
+    pipeline-config:
+      sources:
+        - pipelines/faster_rcnn_resnet101_pets.config
+    pretrained-model-coco:
+      path: pretrained
+      sources:
+        - url: http://storage.googleapis.com/download.tensorflow.org/models/object_detection/faster_rcnn_resnet101_coco_11_06_2017.tar.gz
+          sha256: f08a8475b1abae663bef51234545baa8c44972a8c16cfcaea0a41330426fed02
+          select: faster_rcnn_resnet101_coco_11_06_2017/.*
+    pretrained-model-kitti:
+      path: pretrained
+      sources:
+        - url: http://download.tensorflow.org/models/object_detection/faster_rcnn_resnet101_kitti_2018_01_28.tar.gz
+          sha256: 24e1e48760d40c429bd4689e61b9adcc8ce24a16aa17d2bfb70a486e4b259136
+          select: faster_rcnn_resnet101_kitti_2018_01_28/.*
+
+# ===================================================================
+# Cats dataset (2 class dataset of 'cat' and 'other')
+# ===================================================================
+
+# -------------------------------------------------------------------
+# cats-dataset
+# -------------------------------------------------------------------
+
+- model: cats-dataset
+  description: Internally genereated dataset of labeled cat images
+  extends:
+    - tf-detection-support
+    - image-collect-support
+  operations:
+    label:
+      description: Label collected images
+      main: >
+        label
+          --image-op cats-dataset:collect
+          --image-dir images
+          --app-dir app
+      flags:
+        port:
+          description: Port to run labeling app on
+          default: 8003
+      stoppable: yes
+      pre-process: >
+        test -e app ||
+        (cp -a images_annotation_programme-cc3ab6037ee251642f1f7413a67949d2a3906425/ app &&
+         rm -rf app/data &&
+         mkdir -p app/data/annotations &&
+         mkdir -p app/data/images) &&
+        cp configuration.php app/inc/configuration.php &&
+        cp label-tags.json app/resources/list_of_tags.json &&
+        cp *.jpg app/resources/tag_examples/
+      requires:
+        - label-app
+    prepare:
+      description: Prepare dataset for use in training
+      main: >
+        cats/prepare_dataset
+          --labels labels.pbtxt
+          --images-dir images
+          --annotations-dir annotations
+          --output-dir .
+      flags:
+        val-split:
+          description: Percent of images used for validation
+          default: 0.3
+      requires:
+        - object-detection-lib
+        - labeled-images
+  resources:
+    config:
+      description: Configuration for cats-dataset
+      sources:
+        - config.json
+    label-app:
+      description: Image annotation app
+      sources:
+        - url: https://github.com/frederictost/images_annotation_programme/archive/cc3ab6037ee251642f1f7413a67949d2a3906425.zip
+          sha256: fd51f5e526aa95eb6df2d202cd71b4482e4722cf98acff6b1c566085a3550128
+          select: images_annotation_programme-cc3ab6037ee251642f1f7413a67949d2a3906425
+        - file: label/configuration.php
+        - file: cats/label-tags.json
+        - file: cats/cat.jpg
+        - file: cats/other.jpg
+      references:
+        - https://github.com/frederictost/images_annotation_programme
+    labeled-images:
+      description: Images labeled via cats-dataset:label
+      sources:
+        - operation: label
+          select:
+            - app/data/images
+            - app/data/annotations
+        - file: cats/labels.pbtxt
+
+# -------------------------------------------------------------------
+# cats-faster-rcnn-resnet101
+# -------------------------------------------------------------------
+
+- model: cats-faster-rcnn-resnet101
+  description: Cat detector using Faster RCNN with ResNet-101
+  extends: pets-faster-rcnn-resnet101
+  params:
+    pipeline-config: faster_rcnn_resnet101_cats.config
+    class-labels: labels.pbtxt
+  operations:
+    scan:
+      description: Run catscan
+      main: >
+        scan
+          --config config.json
+          --labels {{class-labels}}
+          --graph frozen_inference_graph.pb
+      requires:
+        - object-detection-lib
+        - config
+        - class-labels
+        - frozen-model
+  resources:
+    pipeline-config:
+      sources:
+        - pipelines/faster_rcnn_resnet101_cats.config
+        - cats/labels.pbtxt
+    class-labels:
+      description: Class labels proto for cats
+      sources:
+        - file: cats/labels.pbtxt
+    prepared-data:
+      description: Cats dataset prepared for training
+      path: data
+      sources:
+        - operation: cats-dataset:prepare
+          select:
+            - cats-train.record
+            - cats-val.record
+    images:
+      description: Images from a cats-dataset:collect operation
+      sources:
+        - operation: cats-dataset:collect
+          select: images
+    config:
+      description: Configuration for cats-dataset
+      sources:
+        - config.json
+    frozen-model:
+      description: Frozen inference graph generated by export operation
+      sources:
+        - operation: export
+          select: export/frozen_inference_graph.pb

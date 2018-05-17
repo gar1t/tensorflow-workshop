@@ -1,0 +1,27 @@
+#Pillow
+
+# NOTE: cython and numpy must be installed manually before install
+# these packages. See https://github.com/h5py/h5py/issues/535 for
+# background on the bug in pip.
+
+# Keras mrcnn reqs
+
+matplotlib
+scikit-image
+pycocotools
+keras
+ipython
+imgaug
+opencv-python
+h5py
+keras_resnet
+amcrest
+pyyaml
+
+# TensorFlow object detection reqs
+
+lxml
+
+# Web app support
+
+flask

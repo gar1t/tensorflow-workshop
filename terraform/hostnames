@@ -1,0 +1,5 @@
+#!/bin/bash
+
+terraform output -module gpu-us-east-1
+terraform output -module gpu-us-east-2
+terraform output -module gpu-us-west-2

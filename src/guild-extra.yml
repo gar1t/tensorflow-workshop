@@ -1,0 +1,66 @@
+# This file contains additional model definitions, which may be added
+# to guild.yml as needed to add support for more models.
+
+- model: pets-mask-rcnn-resnet101
+  description: Pets detector using Mask RCNN with ResNet-101
+  extends: pets-model
+  params:
+    pipeline-config: mask_rcnn_resnet101_pets.config
+  resources:
+    pipeline-config:
+      sources:
+        - pipelines/mask_rcnn_resnet101_pets.config
+    pretrained-model-coco:
+      path: pretrained
+      sources:
+        - url: http://download.tensorflow.org/models/object_detection/mask_rcnn_resnet101_atrous_coco_2018_01_28.tar.gz
+          sha256: 67ac8d5f0974753e9a5b04d36376e20b3be55b5dcd6ce43bc25aed6c5583709d
+          select: mask_rcnn_resnet101_atrous_coco_2018_01_28/.*
+
+- model: pets-ssd-inception-v2
+  description: Pets detector using SSD with Inception v2
+  extends: pets-model
+  params:
+    pipeline-config: ssd_inception_v2_pets.config
+  resources:
+    pipeline-config:
+      sources:
+        - pipelines/ssd_inception_v2_pets.config
+    pretrained-model-coco:
+      path: pretrained
+      sources:
+        - url: http://download.tensorflow.org/models/object_detection/ssd_inception_v2_coco_2017_11_17.tar.gz
+          sha256: 376f8004b95c4c28f329ebfa7713f8335c312e128f1c5a92155e948a4f03d3be
+          select: ssd_inception_v2_coco_2017_11_17/.*
+
+- model: pets-faster-rcnn-nas
+  description: Pets detector using Faster RCNN with NAS
+  extends: pets-model
+  params:
+    pipeline-config: ssd_inception_v2_pets.config
+  resources:
+    pipeline-config:
+      sources:
+        - pipelines/ssd_inception_v2_pets.config
+    pretrained-model-coco:
+      path: pretrained
+      sources:
+        - url: http://download.tensorflow.org/models/object_detection/ssd_inception_v2_coco_2017_11_17.tar.gz
+          sha256: 376f8004b95c4c28f329ebfa7713f8335c312e128f1c5a92155e948a4f03d3be
+          select: ssd_inception_v2_coco_2017_11_17/.*
+
+- model: pets-ssd-mobilenet-v2
+  description: Pets detector using SSD with Mobilenet v2
+  extends: pets-model
+  params:
+    pipeline-config: ssd_mobilenet_v2_pets.config
+  resources:
+    pipeline-config:
+      sources:
+        - pipelines/ssd_mobilenet_v2_pets.config
+    pretrained-model-coco:
+      path: pretrained
+      sources:
+        - url: http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v2_coco_2018_03_29.tar.gz
+          sha256: b9380178b2e35333f1a735e39745928488bdabeb9ed20bc6fa07af8172cb5adc
+          select: ssd_mobilenet_v2_coco_2018_03_29/.*

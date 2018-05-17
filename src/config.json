@@ -1,0 +1,28 @@
+{
+  "cameras": {
+    "cam-1": {
+      "disabled": false,
+      "host": "192.168.2.101",
+      "user": "admin",
+      "password": "Admin123"
+    },
+    "cam-2": {
+      "disabled": false,
+      "host": "192.168.2.102",
+      "user": "admin",
+      "password": "Admin123"
+    },
+    "cam-3": {
+      "disabled": false,
+      "host": "192.168.2.103",
+      "user": "admin",
+      "password": "Admin123"
+    }
+  },
+  "servers": {
+    "image-proxy": {
+      "host": "image-proxy.guild.ai",
+      "image-dir": "/tmp/pump-images"
+    }
+  }
+}

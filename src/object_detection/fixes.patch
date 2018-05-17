@@ -1,0 +1,12 @@
+diff -ura object_detection/utils/learning_schedules.py object_detection.new/utils/learning_schedules.py
+--- object_detection/utils/learning_schedules.py	2018-04-27 07:15:55.989111537 -0500
++++ object_detection.new/utils/learning_schedules.py	2018-04-27 07:27:15.761878407 -0500
+@@ -165,7 +165,7 @@
+     boundaries = [0] + boundaries
+   num_boundaries = len(boundaries)
+   rate_index = tf.reduce_max(tf.where(tf.greater_equal(global_step, boundaries),
+-                                      range(num_boundaries),
++                                      list(range(num_boundaries)),
+                                       [0] * num_boundaries))
+   return tf.reduce_sum(rates * tf.one_hot(rate_index, depth=num_boundaries),
+                        name='learning_rate')

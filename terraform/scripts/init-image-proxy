@@ -1,0 +1,9 @@
+#!/bin/bash -xeu
+
+PUMP_IMAGES=/tmp/pump-images
+GUILD_HOME=.guild
+
+# directories
+
+mkdir -p $PUMP_IMAGES
+mkdir -p $GUILD_HOME
