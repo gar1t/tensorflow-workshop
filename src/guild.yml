@@ -31,14 +31,11 @@
             patch -tN -p0 -i $RESDEF_DIR/object_detection/fixes.patch
 
 # -------------------------------------------------------------------
-# image-collect-support
+# images
 # -------------------------------------------------------------------
 
-- config: image-collect-support
-  description: >
-    Defines an image collect operation and associated
-    resources. Extend to enable image collection for a model or
-    dataset.
+- model: images
+  description: Support for collecting images
   operations:
     collect:
       description: Collect images
@@ -90,7 +87,7 @@
           description: Skip already detected images
       requires:
         - object-detection-lib
-        - collected-images
+        - images:collected-images
         - frozen-model
         - class-labels
 
@@ -102,9 +99,7 @@
   description: >
     Defines the core operations associated with a TensorFlow object
     detection model including finetune, evaluate, and export.
-  extends:
-    - tf-detection-support
-    - image-collect-support
+  extends: tf-detection-support
   operations:
     finetune:
       description: Fine tune an object detector
@@ -196,7 +191,6 @@
   extends:
     - tf-detection-support
     - detect-support
-    - image-collect-support
   params:
     class-labels: mscoco_label_map.pbtxt
   resources:
@@ -262,7 +256,9 @@
   description: >
     Defines the prepared-data and class-labels resources needed for
     models supporting the Oxford-IIIT pets dataset.
-  extends: tf-detection-model
+  extends:
+    - tf-detection-model
+    - detect-support
   params:
     class-labels: pet_label_map.pbtxt
   resources:
@@ -327,15 +323,13 @@
 
 - model: cats-dataset
   description: Internally genereated dataset of labeled cat images
-  extends:
-    - tf-detection-support
-    - image-collect-support
+  extends: tf-detection-support
   operations:
     label:
       description: Label collected images
       main: >
         label
-          --image-op cats-dataset:collect
+          --image-op images:collect
           --image-dir images
           --app-dir app
       flags:
@@ -435,11 +429,6 @@
           select:
             - cats-train.record
             - cats-val.record
-    images:
-      description: Images from a cats-dataset:collect operation
-      sources:
-        - operation: cats-dataset:collect
-          select: images
     config:
       description: Configuration for cats-dataset
       sources:
