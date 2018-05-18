@@ -28,6 +28,15 @@ _safe-kill-service() {
     done
 }
 
+upgrade-system() {
+    if [ ! -e ~/.system-upgraded ]; then
+        sudo apt-get update -y
+        ps -ef | grep apt
+        sudo apt-get upgrade -y
+        touch ~/system-upraded
+    fi
+}
+
 init-ssh() {
     _enabled-password-auth
     _config-user-ssh
@@ -48,15 +57,6 @@ Host image-proxy.guild.ai
      User ubuntu
      IdentityFile ~/.ssh/image-proxy.pem
 EOF
-}
-
-upgrade-system() {
-    if [ ! -e ~/.system-upgraded ]; then
-        sudo apt-get update -y
-        ps -ef | grep apt
-        sudo apt-get upgrade -y
-        touch ~/system-upraded
-    fi
 }
 
 install-required-system-packages() {
@@ -136,8 +136,23 @@ clear-known-hosts() {
     rm -f ~/.ssh/known_hosts
 }
 
+download-guild-resources() {
+    guild_resource_urls=(
+        https://github.com/tensorflow/models/archive/490813bdb3499290633919a9867eb0bb6d346d87.zip
+        http://download.tensorflow.org/models/object_detection/mask_rcnn_resnet101_atrous_coco_2018_01_28.tar.gz
+        http://storage.googleapis.com/download.tensorflow.org/models/object_detection/faster_rcnn_resnet101_coco_11_06_2017.tar.gz
+        https://s3.amazonaws.com/guild-pub/oxford-pets/images.tar.gz
+        https://s3.amazonaws.com/guild-pub/oxford-pets/annotations.tar.gz
+        https://github.com/frederictost/images_annotation_programme/archive/cc3ab6037ee251642f1f7413a67949d2a3906425.zip
+    )
+    for url in ${guild_resource_urls[@]}; do
+        (source activate $ENV && guild download $url)
+    done
+}
+
 stop-auto-upgrade
 upgrade-system
+init-ssh
 install-required-system-packages
 init-motd
 init-workshop-env
@@ -146,6 +161,7 @@ install-workshop-packages
 init-workshop-guild
 init-guild-remotes
 clear-known-hosts
+download-guild-resources
 
 exit 0
 
@@ -186,19 +202,3 @@ else
 
     (cd guild && git pull --rebase)
 fi
-
-
-# Install required Guild resources (from urls in ../src/guild.yml)
-
-guild_resource_urls=(
-    https://github.com/tensorflow/models/archive/490813bdb3499290633919a9867eb0bb6d346d87.zip
-    http://download.tensorflow.org/models/object_detection/mask_rcnn_resnet101_atrous_coco_2018_01_28.tar.gz
-    https://s3.amazonaws.com/guild-pub/oxford-pets/images.tar.gz
-    https://s3.amazonaws.com/guild-pub/oxford-pets/annotations.tar.gz
-    http://download.tensorflow.org/models/object_detection/faster_rcnn_resnet101_kitti_2018_01_28.tar.gz
-    http://storage.googleapis.com/download.tensorflow.org/models/object_detection/faster_rcnn_resnet101_coco_11_06_2017.tar.gz
-    https://github.com/frederictost/images_annotation_programme/archive/cc3ab6037ee251642f1f7413a67949d2a3906425.zip
-)
-for url in ${guild_resource_urls[@]}; do
-    (source activate $ENV && guild download $url)
-done
