@@ -68,8 +68,8 @@
 - config: detect-support
   description: >
     Defines a detect operation, which applies a frozen inference graph
-    (i.e. an exported trained model) to images in a directory to
-    generate corresponding images (detect images) containing detected
+    (i.e. an exported trained model) to images in a directory and
+    generates corresponding images (detect images) containing detected
     and classified images. Apply to models that provide frozen
     inference graphs, either by way of a pretrained model or an export
     operation.
@@ -90,6 +90,40 @@
         - images:collected-images
         - frozen-model
         - class-labels
+
+# -------------------------------------------------------------------
+# scan-support
+# -------------------------------------------------------------------
+
+- config: scan-support
+  description: >
+    Defines a scan operation, which uses a frozen inference graph
+    (i.e. an exported trained model) to images obtained from cameras
+    and generates corresponding images (detect images) containing
+    detected and classified images. Apply to models that provide
+    frozen inference graphs, either by way of a pretrained model or an
+    export operation.
+  operations:
+    scan:
+      description: Scan for objects
+      main: >
+        scan
+          --config config.json
+          --labels {{class-labels}}
+          --graph frozen_inference_graph.pb
+      flags:
+        use-proxy:
+          description: If yes, image proxy will be used for image snapshots
+          arg-name: use-image-proxy
+        port:
+          description: Port to run scan app on
+          default: 8004
+      stoppable: yes
+      requires:
+        - object-detection-lib
+        - config
+        - class-labels
+        - frozen-model
 
 # -------------------------------------------------------------------
 # tf-detection-model
@@ -395,31 +429,12 @@
 
 - model: cats-faster-rcnn-resnet101
   description: Cat detector using Faster RCNN with ResNet-101
-  extends: pets-faster-rcnn-resnet101
+  extends:
+    - pets-faster-rcnn-resnet101
+    - scan-support
   params:
     pipeline-config: faster_rcnn_resnet101_cats.config
     class-labels: labels.pbtxt
-  operations:
-    scan:
-      description: Run catscan
-      main: >
-        scan
-          --config config.json
-          --labels {{class-labels}}
-          --graph frozen_inference_graph.pb
-      flags:
-        use-proxy:
-          description: If yes, image proxy will be used for image snapshots
-          arg-name: use-image-proxy
-        port:
-          description: Port to run collection app on
-          default: 8002
-      stoppable: yes
-      requires:
-        - object-detection-lib
-        - config
-        - class-labels
-        - frozen-model
   resources:
     pipeline-config:
       sources:
