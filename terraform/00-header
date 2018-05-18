@@ -1,0 +1,30 @@
+#!/bin/bash
+
+cat << EOF
+===================================================================
+
+                 TensorFlow / Keras Workshop
+
+                                    / )
+                                   ( (
+                     A.-.A  .-""-.  ) )
+                    / , , \\/      \\/ /
+                   =\\  t  ;=    /   /
+                     '--,'  .""|   /
+                         || |  \\\\ \\
+                        ((,_|  ((,_\\
+
+===================================================================
+
+Before running any commands, first activate the workshop environment
+by running:
+
+    source activate workshop
+
+The workshop source is located in ~/workshop/src. Change to that
+directory to run project commands:
+
+    cd ~/workshop/src
+
+Workshop site: https://github.com/gar1t/tensorflow-workshop
+EOF
