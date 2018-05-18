@@ -358,6 +358,12 @@ First export our model:
 
     $ guild run pets-faster-rcnn-resnet101:export checkpoint-step=STEP
 
+To export the 200K steps model:
+
+    $ guild run pets-faster-rcnn-resnet101:export \
+      checkpoint-step=200000 trained-model \
+      trained-model=859c9604
+
 NOTE: We need to explicitly specify a checkpoint step for export,
 which we can get by running `guild runs info -F` on the finetune run,
 or use Guild View to view run files.
