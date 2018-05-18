@@ -353,7 +353,7 @@ for `cats-dataset`:
 Students can take turns moving the object around the room and taking
 snapshots.
 
-We can start with 20 images just to see how far we can get. We can add
+We can start with 10 images just to see how far we can get. We can add
 more as needed later.
 
 ### Label cat images
@@ -414,7 +414,7 @@ And then detect:
 
 ## Improve our detector with more data
 
-We should now have a pretty good detector, even with 20 images! But we
+We should now have a pretty good detector, even with 10 images! But we
 should also have seen some problems:
 
 - False negatives where the object is in unseen positions or locations
