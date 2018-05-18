@@ -10,7 +10,9 @@ import base64
 import json
 import logging
 import os
+import signal
 import subprocess
+import sys
 import threading
 import time
 
@@ -91,6 +93,83 @@ class PerformanceStats(object):
     def _scalar_key(self, cat, key):
         return "{}/{}/{}".format(self.root_key, cat, key)
 
+class StatsLog(object):
+
+    def __init__(self, log_dir):
+        self._log = op_util.TFEvents(log_dir)
+        self._lock = threading.Lock()
+
+    def scalars(self, scalars):
+        with self._lock:
+            self.log.scalars(scalars)
+
+class Worker(threading.Thread):
+
+    def __init__(self, camera, detector, log, working_dir, interval):
+        super(Worker, self).__init__()
+        self.camera = camera
+        self.detector = detector
+        self.log = log
+        self.interval = interval
+        self.working_dir = working_dir
+        self._stats = PerformanceStats()
+        self._stop_event = threading.Event()
+        self._image_path = os.path.join(
+            working_dir, "%s.jpg" % camera.key)
+        self._detect_image_path = os.path.join(
+            working_dir, "%s-detect.png" % camera.key)
+
+    def run(self):
+        while True:
+            start = time.time()
+            self._snapshot_and_detect()
+            to_wait = max(0, self.interval - (time.time() - start))
+            if self._stop_event.wait(to_wait):
+                break
+
+    def _snapshot_and_detect(self):
+        log.info("snapshot from %s", self.camera)
+        try:
+            self._snapshot()
+        except Exception as e:
+            self._handle_camera_error(e)
+        else:
+            try:
+                self._detect()
+            except Exception as e:
+                self._handle_detect_error(e)
+
+    def _snapshot(self):
+        self.camera.snapshot(self._image_path)
+
+    def _handle_camera_error(self, e):
+        if self._stop_event.is_set():
+            return
+        if log.getEffectiveLevel() <= logging.DEBUG:
+            log.exception("from %s", self.camera)
+        if isinstance(e, app_util.CameraError):
+            _code, _out, msg = e.args[2]
+        else:
+            msg = str(e)
+        log.error("snapshotting %s: %s", self.camera, msg)
+
+    def _detect(self):
+        with open(self._image_path, "rb") as f:
+            image_bytes = f.read()
+        _result, detect_image = self.detector.detect(image_bytes)
+        print("TODO: log stuff from result")
+        self.detector.write_image(detect_image, self._detect_image_path)
+
+    def _handle_detect_error(self, e):
+        if self._stop_event.is_set():
+            return
+        if log.getEffectiveLevel() <= logging.DEBUG:
+            log.exception("detect")
+        log.error("detect: %s", e)
+
+    def stop(self):
+        self._stop_event.set()
+
 app = flask.Flask(
     __name__,
     static_url_path="",
@@ -148,26 +227,31 @@ def detect_():
 
 def main():
     args = _parse_args()
-    _init_app(args)
-    if args.dev:
-        app_port = args.port + 1
-        _start_dev_server(args, app_port)
-    else:
-        app_port = args.port
-    app.run(host=args.host, port=app_port)
+    _init_logging(args)
+    cameras = _init_cameras(args)
+    detector = _init_detector(args)
+    log = _init_log(args)
+    workers = _start_workers(cameras, detector, log, args)
+    _init_signal_handlers(workers)
+    _start_app(cameras, args)
 
-def _init_app(args):
-    app.cameras = _init_cameras(args)
-    app.detector = _init_detector(args)
-    app.log = _init_log(args)
+def _init_logging(args):
+    app_util.init_logging(args.debug)
 
 def _init_cameras(args):
     config = app_util.load_config(args.config)
     return [
-        app_util.Camera(key, val)
-        for key, val in config.get("cameras", {}).items()
-        if not val.get("disabled", False)
+        _init_camera(key, config, args)
+        for key in config.get("cameras", {})
     ]
+
+def _init_camera(key, config, args):
+    camera = app_util.init_camera(key, config, args.use_image_proxy)
+    log.debug("camera %s config: %s", key, camera.config)
+    print(
+        " * Camera %s configured to read from %s"
+        % (key, camera.src))
+    return camera
 
 def _init_detector(args):
     d = detect.Detector(
@@ -179,7 +263,38 @@ def _init_detector(args):
 
 def _init_log(args):
     app_util.ensure_dir(args.log_dir)
-    return op_util.TFEvents(args.log_dir)
+    return StatsLog(args.log_dir)
+
+def _start_workers(cameras, detector, log, args):
+    workers = []
+    app_util.ensure_dir(args.image_dir)
+    for camera in cameras:
+        worker = Worker(camera, detector, log, args.image_dir, args.interval)
+        worker.start()
+        workers.append(worker)
+    return workers
+
+def _init_signal_handlers(workers):
+    stop = lambda *_args: _stop(workers)
+    signal.signal(signal.SIGINT, stop)
+    signal.signal(signal.SIGTERM, stop)
+
+def _stop(workers):
+    print("\b\bStopping")
+    for w in workers:
+        w.stop()
+    for w in workers:
+        w.join()
+    sys.exit(0)
+
+def _start_app(cameras, args):
+    app.cameras = cameras
+    if args.dev:
+        app_port = args.port + 1
+        _start_dev_server(args, app_port)
+    else:
+        app_port = args.port
+    app.run(host=args.host, port=app_port)
 
 def _start_dev_server(args, app_port):
     app_home = os.path.join(HOME, "scan")
@@ -193,6 +308,10 @@ def _parse_args():
         "--config",
         default="config.json",
         help="App config (config.json)")
+    p.add_argument(
+        "--use-image-proxy",
+        action="store_true",
+        help="Use image-proxy to obtain images")
     p.add_argument(
         "--graph",
         default="frozen_inference_graph.pb",
@@ -211,14 +330,27 @@ def _parse_args():
         type=int,
         help="App port (8004)")
     p.add_argument(
+        "--image-dir",
+        default="images",
+        help="Directory to write images in (images)")
+    p.add_argument(
         "--log-dir",
         default="logs",
         help="Directory to write log in (logs)")
+    p.add_argument(
+        "--interval",
+        default=5.0,
+        type=float,
+        help="Seconds between detections (5)")
     p.add_argument(
         "--box-line-size",
         default=4,
         type=int,
         help="Bounding box line width (4)")
+    p.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print debug info")
     p.add_argument(
         "--dev",
         action="store_true",

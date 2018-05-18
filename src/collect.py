@@ -125,23 +125,11 @@ def _init_app(args):
         app.save_dir = args.save_dir
 
 def _init_camera(key, config, args):
-    if args.use_image_proxy:
-        camera = _init_camera_proxy(key, config)
-    else:
-        camera = _init_default_camera(key, config)
+    camera = app_util.init_camera(key, config, args.use_image_proxy)
     print(
         " * Camera %s configured to read from %s"
         % (key, camera.src))
     return camera
-
-def _init_camera_proxy(key, config):
-    cam_config = config.get("cameras", {}).get(key, {})
-    proxy_config = config.get("servers", {}).get("image-proxy", {})
-    return app_util.CameraProxy(key, cam_config, proxy_config)
-
-def _init_default_camera(key, config):
-    cam_config = config.get("cameras", {}).get(key, {})
-    return app_util.Camera3(key, cam_config)
 
 def _start_dev_server(args, app_port):
     app_home = os.path.join(HOME, "collect")

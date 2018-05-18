@@ -19,6 +19,11 @@ from object_detection.utils import label_map_util
 from object_detection.utils import ops as utils_ops
 from object_detection.utils import visualization_utils as vis_util
 
+# Mask support is currently not working and this flag is used to
+# disable it.
+#
+MASK_SUPPORT = False
+
 class Detector(object):
 
     detect_ops = (
@@ -50,7 +55,8 @@ class Detector(object):
         return self._sess.graph.get_tensor_by_name(name)
 
     def _maybe_apply_detect_masks(self):
-        return # TEMP disable
+        if not MASK_SUPPORT:
+            return
         try:
             t = self._graph_tensor("detection_masks:0")
         except KeyError:

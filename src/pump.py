@@ -113,7 +113,7 @@ class CameraPump(threading.Thread):
 
 def main():
     args = _init_args()
-    _init_logging(args)
+    app_util.init_logging(args.debug)
     config = app_util.load_config(args.config)
     if args.test:
         print("Testing %s" % args.test)
@@ -128,18 +128,11 @@ def main():
         _init_signal_handlers(pumps)
         signal.pause()
 
-def _init_logging(args):
-    logging.basicConfig(
-        level=logging.DEBUG if args.debug else logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S")
-
 def _test_image(key, config):
-    cam_config = config.get("cameras", {}).get(key)
-    if cam_config is None:
+    if config.get("cameras", {}).get(key) is None:
         print("No such camera: %s" % key)
         sys.exit(1)
-    cam = app_util.Camera3(key, cam_config)
+    cam = app_util.init_camera(key, config)
     snapshot_path = os.path.join(tempfile.gettempdir(), key + ".jpg")
     print("Snapshotting %s to %s" % (key, snapshot_path))
     cam.snapshot(snapshot_path)
@@ -147,10 +140,10 @@ def _test_image(key, config):
 def _start_pumps(config, interval, host, image_path):
     pumps = []
     proxy = ImageProxy(config, host, image_path)
-    for key, cam_config in config.get("cameras", {}).items():
-        log.debug("camera %s config: %s", key, cam_config)
-        cam = app_util.Camera3(key, cam_config)
-        pump = CameraPump(cam, proxy, interval)
+    for key in config.get("cameras", {}):
+        camera = app_util.init_camera(key, config)
+        log.debug("camera %s config: %s", key, camera.config)
+        pump = CameraPump(camera, proxy, interval)
         pump.start()
         pumps.append(pump)
     return pumps

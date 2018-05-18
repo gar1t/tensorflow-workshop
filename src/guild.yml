@@ -407,6 +407,14 @@
           --config config.json
           --labels {{class-labels}}
           --graph frozen_inference_graph.pb
+      flags:
+        use-proxy:
+          description: If yes, image proxy will be used for image snapshots
+          arg-name: use-image-proxy
+        port:
+          description: Port to run collection app on
+          default: 8002
+      stoppable: yes
       requires:
         - object-detection-lib
         - config

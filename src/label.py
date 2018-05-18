@@ -18,7 +18,7 @@ log = logging.getLogger()
 
 from guild import _api as gapi
 
-import app_util
+import . import app_util
 
 class ImageWatcher(threading.Thread):
 

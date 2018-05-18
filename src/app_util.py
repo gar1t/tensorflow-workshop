@@ -7,14 +7,11 @@ from __future__ import print_function
 
 import errno
 import json
+import logging
 import os
 import subprocess
 import sys
-import tempfile
 import threading
-import time
-
-import amcrest
 
 class CameraError(Exception):
     pass
@@ -57,7 +54,7 @@ class CameraProxy(CameraBase):
             raise CameraError(self.key, self.config, (p.returncode, out, err))
         return out, err
 
-class Camera3(CameraBase):
+class Camera(CameraBase):
     """Camera that uses RTSP stream and ffmpeq to capture snapshots.
 
     This approach proves far more reliable than using HTTP via the
@@ -69,7 +66,7 @@ class Camera3(CameraBase):
     """
 
     def __init__(self, key, config):
-        super(Camera3, self).__init__(key, config)
+        super(Camera, self).__init__(key, config)
         self.src = self._init_src(config)
 
     def __str__(self):
@@ -99,95 +96,6 @@ class Camera3(CameraBase):
         if p.returncode != 0:
             raise CameraError(self.key, self.config, (p.returncode, out, err))
         return out, err
-
-class Camera2(object):
-    """Camera that uses amcrest API and lazy connections."""
-
-    def __init__(self, key, config):
-        self.key = key
-        self.config = config
-        self.__camera = None
-
-    def __str__(self):
-        return "camera %s" % self.key
-
-    def snapshot(self, path):
-        self._camera.snapshot(0, path)
-
-    @property
-    def _camera(self):
-        if self.__camera is None:
-            host = self.config.get("host", "192.168.1.8")
-            port = self.config.get("port", "80")
-            user = self.config.get("user", "admin")
-            pwd = self.config.get("password", "admin")
-            try:
-                ac = amcrest.AmcrestCamera(host, port, user, pwd)
-            except Exception as e:
-                raise CameraError(self.key, self.config, e)
-            else:
-                self.__camera = ac.camera
-        return self.__camera
-
-class Camera(object):
-    """Original camera implementation, to be phased out.
-
-    Camera3 uses a more reliable approach for snapshotting and doesn't
-    rely on the amcrest/requests API. See docs in Camera3 above for
-    details.
-
-    """
-
-    def __init__(self, key, config):
-        self.key = key
-        self.config = config
-        self._camera = self._init_camera(config)
-        self.enabled = self._camera is not None
-        self._last_img = b""
-        self._lock = threading.Lock()
-
-    def __enter__(self):
-        self._lock.acquire()
-
-    def __exit__(self, *_args):
-        self._lock.release()
-
-    @staticmethod
-    def _init_camera(config):
-        host = config.get("host", "192.168.1.8")
-        port = config.get("port", "80")
-        user = config.get("user", "admin")
-        password = config.get("password", "admin")
-        sys.stderr.write("Connecting to camera at {}\n".format(host))
-        try:
-            ac = amcrest.AmcrestCamera(host, port, user, password)
-        except Exception as e:
-            sys.stderr.write("Error connecting to {}: {}".format(host, e))
-            return None
-        else:
-            return ac.camera
-
-    def snapshot(self):
-        with tempfile.NamedTemporaryFile(prefix="collect-snashot-") as tmp:
-            resp = self._camera.snapshot(0, tmp.name)
-            if resp.status != 200:
-                raise IOError(
-                    "error getting snapshot from %s: %s"
-                    % (self.key, resp.status))
-            image_bytes = open(tmp.name, "rb").read()
-        if not image_bytes:
-            raise IOError("empty image")
-        self._last_img = image_bytes
-        return image_bytes
-
-    def save(self, to_dir):
-        ensure_dir(to_dir)
-        with open(self._img_path(to_dir), "wb") as f:
-            f.write(self._last_img)
-
-    def _img_path(self, dir):
-        timestamp = int(time.time() * 1000)
-        return os.path.join(dir, "{}-{}.jpg".format(self.key, timestamp))
 
 class DevServer(threading.Thread):
 
@@ -232,3 +140,25 @@ def load_config(path):
     except Exception as e:
         sys.stderr.write("Error reading {}: {}\n".format(path, e))
         sys.exit(1)
+
+def init_camera(key, config, use_image_proxy=False):
+    if use_image_proxy:
+        camera = _init_camera_proxy(key, config)
+    else:
+        camera = _init_default_camera(key, config)
+    return camera
+
+def _init_camera_proxy(key, config):
+    cam_config = config.get("cameras", {}).get(key, {})
+    proxy_config = config.get("servers", {}).get("image-proxy", {})
+    return CameraProxy(key, cam_config, proxy_config)
+
+def _init_default_camera(key, config):
+    cam_config = config.get("cameras", {}).get(key, {})
+    return Camera(key, cam_config)
+
+def init_logging(debug):
+    logging.basicConfig(
+        level=logging.DEBUG if debug else logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S")
