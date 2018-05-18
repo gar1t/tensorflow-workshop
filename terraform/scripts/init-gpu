@@ -70,9 +70,10 @@ if [ ! -e guild ]; then
 
     (cd guild && make)
 
-    # add Guild to path
+    # add Guild to paths
 
     echo "export PATH=~/guild/guild/scripts:\$PATH" >> ~/.bashrc
+    echo "export PYTHONPATH=~/guild" >> ~/.bashrc
 
     # check Guild install
 
@@ -150,3 +151,7 @@ sudo rm -f /etc/update-motd.d/10-help-text
 sudo rm -f /etc/update-motd.d/51-cloudguest
 sudo rm -f /etc/update-motd.d/91-release-upgrade
 sudo rm -f /etc/update-motd.d/90-updates-available
+
+# Clear known hosts
+
+rm -f ~/.ssh/known_hosts

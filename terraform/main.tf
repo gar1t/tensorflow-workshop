@@ -1,9 +1,11 @@
 variable "profile" {
-  description = "one of:\n- dev (large gpu and image-proxy)\n- test (one of every each)\n- full (everything)"
+  description = "one of:\n- proxy-only (no gpus)\n- one (only one gpu)\n- dev (large gpu and image-proxy)\n- test (one of every each)\n- full (everything)"
 }
 
 variable "us_east_1_standard_gpu_counts" {
   default = {
+    "proxy-only" = "0"
+    "one" = "1"
     "dev" = "0"
     "test" = "1"
     "full" = "2"
@@ -12,6 +14,8 @@ variable "us_east_1_standard_gpu_counts" {
 
 variable "us_east_2_standard_gpu_counts" {
   default = {
+    "proxy-only" = "0"
+    "one" = "0"
     "dev" = "0"
     "test" = "1"
     "full" = "1"
@@ -20,6 +24,8 @@ variable "us_east_2_standard_gpu_counts" {
 
 variable "us_west_2_standard_gpu_counts" {
   default = {
+    "proxy-only" = "0"
+    "one" = "0"
     "dev" = "0"
     "test" = "1"
     "full" = "5"
@@ -28,6 +34,8 @@ variable "us_west_2_standard_gpu_counts" {
 
 variable "us_east_1_large_gpu_counts" {
   default = {
+    "proxy-only" = "0"
+    "one" = "0"
     "dev" = "1"
     "test" = "0"
     "full" = "1"
