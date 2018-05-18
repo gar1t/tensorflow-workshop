@@ -240,11 +240,11 @@
             - models-490813bdb3499290633919a9867eb0bb6d346d87/research/object_detection/data/mscoco_label_map.pbtxt
 
 # -------------------------------------------------------------------
-# coco-mask-rcnn-resnet101
+# coco-faster-rcnn-resnet101
 # -------------------------------------------------------------------
 
-- model: coco-mask-rcnn-resnet101
-  description: Detector using Mask RCNN with ResNet-101 trained on MS COCO
+- model: coco-faster-rcnn-resnet101
+  description: Detector using Faster RCNN with ResNet-101 trained on MS COCO
   extends: coco-model
   resources:
     frozen-model:

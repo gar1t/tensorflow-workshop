@@ -78,13 +78,13 @@ To view the collected images, use Guild View:
 **NOTE:** At this time it might be a good idea to start View in a
 separate session.
 
-### Run detect using Mask RCNN pretrained on MS COCO
+### Run detect using Faster RCNN pretrained on MS COCO
 
 The MS COCO trained model should pick up various objects in the
 room. It should even find our target object, though not consistently
 or accurately (it will frequently misclassify).
 
-    $ guild run coco-mask-rcnn-resnet101:detect
+    $ guild run coco-faster-rcnn-resnet101:detect
 
 This operation will apply the trained model to detect objects in our
 collected images.
