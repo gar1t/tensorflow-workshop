@@ -10,6 +10,7 @@ import base64
 import json
 import logging
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -77,14 +78,16 @@ class StatsLog(object):
 
 class Worker(threading.Thread):
 
-    def __init__(self, camera, detector, log, working_dir, interval):
+    def __init__(self, camera, detector, log, working_dir, interval,
+                 archive_images=False):
         super(Worker, self).__init__()
         self.key = camera.key
         self.camera = camera
         self.detector = detector
         self.log = log
-        self.interval = interval
         self.working_dir = working_dir
+        self.interval = interval
+        self.archive_images = archive_images
         self._stats = PerformanceStats()
         self._stop_event = threading.Event()
         self._image_path = os.path.join(
@@ -103,18 +106,21 @@ class Worker(threading.Thread):
 
     def _snapshot_and_detect(self):
         log.info("detecting from %s", self.camera)
+        timestamp = int(time.time() * 1000)
         try:
-            self._snapshot()
+            self._snapshot(timestamp)
         except Exception as e:
             self._handle_camera_error(e)
         else:
             try:
-                self._detect()
+                self._detect(timestamp)
             except Exception as e:
                 self._handle_detect_error(e)
 
-    def _snapshot(self):
+    def _snapshot(self, timestamp):
         self.camera.snapshot(self._image_path)
+        if self.archive_images:
+            self._archive(self._image_path, timestamp)
 
     def _handle_camera_error(self, e):
         if self._stop_event.is_set():
@@ -127,13 +133,15 @@ class Worker(threading.Thread):
             msg = str(e)
         log.error("camera %s: %s", self.camera, msg)
 
-    def _detect(self):
+    def _detect(self, timestamp):
         with open(self._image_path, "rb") as f:
             image_bytes = f.read()
         _result, detect_image = self.detector.detect(image_bytes)
         print("TODO: log stuff from result")
         with self._detect_image_lock:
             self.detector.write_image(detect_image, self._detect_image_path)
+        if self.archive_images:
+            self._archive(self._detect_image_path, timestamp, "-detected")
 
     def read_detect_image(self):
         with self._detect_image_lock:
@@ -148,6 +156,14 @@ class Worker(threading.Thread):
 
     def stop(self):
         self._stop_event.set()
+
+    def _archive(self, path, timestamp, suffix=""):
+        path_dir = os.path.dirname(path)
+        _, ext = os.path.splitext(path)
+        dest = os.path.join(
+            path_dir,
+            "archive-{}-{}{}{}".format(self.key, timestamp, suffix, ext))
+        shutil.copy(path, dest)
 
 app = flask.Flask(
     __name__,
@@ -229,7 +245,13 @@ def _start_workers(cameras, detector, log, args):
     workers = []
     app_util.ensure_dir(args.image_dir)
     for camera in cameras:
-        worker = Worker(camera, detector, log, args.image_dir, args.interval)
+        worker = Worker(
+            camera,
+            detector,
+            log,
+            args.image_dir,
+            args.interval,
+            args.archive_images)
         worker.start()
         workers.append(worker)
     return workers
@@ -274,6 +296,10 @@ def _parse_args():
         "--use-image-proxy",
         action="store_true",
         help="Use image-proxy to obtain images")
+    p.add_argument(
+        "--archive-images",
+        action="store_true",
+        help="Save all images with timestamps")
     p.add_argument(
         "--graph",
         default="frozen_inference_graph.pb",

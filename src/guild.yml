@@ -363,13 +363,19 @@
       description: Label collected images
       main: >
         label
-          --image-op images:collect
+          --image-op ${image-op}
           --image-dir images
           --app-dir app
       flags:
         port:
           description: Port to run labeling app on
           default: 8003
+        image-op:
+          description: Images source operation
+          default: images:collect
+        image-pattern:
+          description: File name pattern of images to label
+          default: '*.jpg'
       stoppable: yes
       pre-process: >
         test -e app ||

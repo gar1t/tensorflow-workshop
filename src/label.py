@@ -7,6 +7,7 @@ from __future__ import print_function
 
 import argparse
 import errno
+import fnmatch
 import logging
 import os
 import signal
@@ -18,7 +19,7 @@ log = logging.getLogger()
 
 from guild import _api as gapi
 
-import . import app_util
+import app_util
 
 class ImageWatcher(threading.Thread):
 
@@ -105,23 +106,21 @@ def _maybe_collect_op_images(args):
     for run in gapi.runs_list(
             ops=[args.image_op],
             status=["running", "completed", "terminated"]):
-        _link_to_images(run.path, args.image_dir)
+        _link_to_images(run.path, args.image_dir, args.image_pattern)
 
-def _link_to_images(src, dest):
-    for name, path in _iter_images(src):
+def _link_to_images(src, dest, pattern):
+    for name, path in _iter_images(src, pattern):
         app_util.ensure_dir(dest)
         _safe_link(path, os.path.join(dest, name))
 
-def _iter_images(src):
+def _iter_images(src, pattern):
     for root, dirs, files in os.walk(src):
         try:
             dirs.remove(".guild")
         except ValueError:
             pass
-        for name in files:
-            _, ext = os.path.splitext(name)
-            if ext.lower() in (".jpg", ".jpeg"):
-                yield name, os.path.join(root, name)
+        for name in fnmatch.filter(files, pattern):
+            yield name, os.path.join(root, name)
 
 def _init_args():
     p = argparse.ArgumentParser()
@@ -138,6 +137,10 @@ def _init_args():
         "--image-dir",
         default="images",
         help="Location of images (images)")
+    p.add_argument(
+        "--image-pattern",
+        default="*.jpg",
+        help="Glob pattern of image to label in image dir (*.jpg)")
     p.add_argument(
         "--image-op",
         help="Use images from IMAGE_OP runs")
