@@ -1,5 +1,3 @@
-#Pillow
-
 # NOTE: cython and numpy must be installed manually before install
 # these packages. See https://github.com/h5py/h5py/issues/535 for
 # background on the bug in pip.
@@ -15,7 +13,6 @@ imgaug
 opencv-python
 h5py
 keras_resnet
-amcrest
 pyyaml
 
 # TensorFlow object detection reqs

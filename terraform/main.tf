@@ -12,6 +12,16 @@ variable "us_east_1_standard_gpu_counts" {
   }
 }
 
+variable "us_east_1_large_gpu_counts" {
+  default = {
+    "proxy-only" = "0"
+    "one" = "0"
+    "dev" = "1"
+    "test" = "0"
+    "full" = "1"
+  }
+}
+
 variable "us_east_2_standard_gpu_counts" {
   default = {
     "proxy-only" = "0"
@@ -32,16 +42,6 @@ variable "us_west_2_standard_gpu_counts" {
   }
 }
 
-variable "us_east_1_large_gpu_counts" {
-  default = {
-    "proxy-only" = "0"
-    "one" = "0"
-    "dev" = "1"
-    "test" = "0"
-    "full" = "1"
-  }
-}
-
 module "image-proxy" {
   source = "./image-proxy"
   region = "us-east-1"
@@ -52,8 +52,8 @@ module "image-proxy" {
 module "gpu-us-east-1" {
   source = "./gpu"
   region = "us-east-1"
-  # ami = "ami-8024aaff"
-  ami = "ami-870a99f8"
+  ami = "ami-8024aaff"
+  # ami = "ami-870a99f8"
   standard_count = "${lookup(var.us_east_1_standard_gpu_counts, var.profile)}"
   large_count = "${lookup(var.us_east_1_large_gpu_counts, var.profile)}"
 }

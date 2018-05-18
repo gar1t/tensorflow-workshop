@@ -9,7 +9,10 @@
     $ cd terraform2
     $ terraform apply
 
-Get the list of hostnames by running:
+When prompted, specify the 'full' profile.
+
+Once the environment has been initialized, get the list of hostnames
+by running:
 
     $ ./hostnames
 
@@ -36,13 +39,13 @@ Pump camera images to image proxy:
 
 ## Run tests on large GPU
 
-- Collect sample images
-- Run detect
-- Finetune pets
-- Label images
-- Finetune cats
-- Evaluate
-- Push runs to shared
+- [ ] Collect sample images
+- [ ] Run detect
+- [ ] Finetune pets
+- [ ] Label images
+- [ ] Finetune cats
+- [ ] Evaluate
+- [ ] Push runs to shared
 
 ## pawnee as backup
 
