@@ -115,6 +115,9 @@
         use-proxy:
           description: If yes, image proxy will be used for image snapshots
           arg-name: use-image-proxy
+        archive-steps:
+          description: Archive at every Nth scan step (0 disables archives)
+          default: 0
         port:
           description: Port to run scan app on
           default: 8004

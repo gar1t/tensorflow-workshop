@@ -79,7 +79,7 @@ class StatsLog(object):
 class Worker(threading.Thread):
 
     def __init__(self, camera, detector, log, working_dir, interval,
-                 archive_images=False):
+                 archive_steps=0):
         super(Worker, self).__init__()
         self.key = camera.key
         self.camera = camera
@@ -87,7 +87,7 @@ class Worker(threading.Thread):
         self.log = log
         self.working_dir = working_dir
         self.interval = interval
-        self.archive_images = archive_images
+        self.archive_steps = archive_steps
         self._stats = PerformanceStats()
         self._stop_event = threading.Event()
         self._image_path = os.path.join(
@@ -95,32 +95,45 @@ class Worker(threading.Thread):
         self._detect_image_path = os.path.join(
             working_dir, "%s-detect.png" % camera.key)
         self._detect_image_lock = threading.Lock()
+        self._step = 0
 
     def run(self):
         while True:
             start = time.time()
             self._snapshot_and_detect()
+            self._step += 1
             to_wait = max(0, self.interval - (time.time() - start))
             if self._stop_event.wait(to_wait):
                 break
 
     def _snapshot_and_detect(self):
         log.info("detecting from %s", self.camera)
-        timestamp = int(time.time() * 1000)
         try:
-            self._snapshot(timestamp)
+            self._snapshot()
         except Exception as e:
             self._handle_camera_error(e)
         else:
             try:
-                self._detect(timestamp)
+                self._detect()
             except Exception as e:
                 self._handle_detect_error(e)
 
-    def _snapshot(self, timestamp):
+    def _snapshot(self):
         self.camera.snapshot(self._image_path)
-        if self.archive_images:
-            self._archive(self._image_path, timestamp)
+        self._maybe_archive(self._image_path, "-orig")
+
+    def _maybe_archive(self, path, suffix):
+        if self.archive_steps > 0 and (self._step % self.archive_steps) == 0:
+            self._archive(path, suffix)
+
+    def _archive(self, path, suffix):
+        path_dir = os.path.dirname(path)
+        _, ext = os.path.splitext(path)
+        dest_name = (
+            "archive-{}-{:06d}{}{}".format(
+            self.key, self._step, suffix, ext))
+        dest = os.path.join(path_dir, dest_name)
+        shutil.copy(path, dest)
 
     def _handle_camera_error(self, e):
         if self._stop_event.is_set():
@@ -133,15 +146,14 @@ class Worker(threading.Thread):
             msg = str(e)
         log.error("camera %s: %s", self.camera, msg)
 
-    def _detect(self, timestamp):
+    def _detect(self):
         with open(self._image_path, "rb") as f:
             image_bytes = f.read()
         _result, detect_image = self.detector.detect(image_bytes)
         print("TODO: log stuff from result")
         with self._detect_image_lock:
             self.detector.write_image(detect_image, self._detect_image_path)
-        if self.archive_images:
-            self._archive(self._detect_image_path, timestamp, "-detected")
+        self._maybe_archive(self._detect_image_path, "-detected")
 
     def read_detect_image(self):
         with self._detect_image_lock:
@@ -156,14 +168,6 @@ class Worker(threading.Thread):
 
     def stop(self):
         self._stop_event.set()
-
-    def _archive(self, path, timestamp, suffix=""):
-        path_dir = os.path.dirname(path)
-        _, ext = os.path.splitext(path)
-        dest = os.path.join(
-            path_dir,
-            "archive-{}-{}{}{}".format(self.key, timestamp, suffix, ext))
-        shutil.copy(path, dest)
 
 app = flask.Flask(
     __name__,
@@ -251,7 +255,7 @@ def _start_workers(cameras, detector, log, args):
             log,
             args.image_dir,
             args.interval,
-            args.archive_images)
+            args.archive_steps)
         worker.start()
         workers.append(worker)
     return workers
@@ -289,7 +293,7 @@ def _start_dev_server(args, app_port):
 def _parse_args():
     p = argparse.ArgumentParser()
     p.add_argument(
-        "--config",
+        "--config", metavar="PATH",
         default="config.json",
         help="App config (config.json)")
     p.add_argument(
@@ -297,15 +301,16 @@ def _parse_args():
         action="store_true",
         help="Use image-proxy to obtain images")
     p.add_argument(
-        "--archive-images",
-        action="store_true",
-        help="Save all images with timestamps")
+        "--archive-steps", metavar="N",
+        default=0,
+        type=int,
+        help="Archive at every Nth scan step; 0 disables archives (0)")
     p.add_argument(
-        "--graph",
+        "--graph", metavar="PATH",
         default="frozen_inference_graph.pb",
         help="Path to frozen detection graph (frozen_inference_graph.pb)")
     p.add_argument(
-        "--labels",
+        "--labels", metavar="PATH",
         default="labels.pbtxt",
         help="Path to label proto")
     p.add_argument(
@@ -318,20 +323,20 @@ def _parse_args():
         type=int,
         help="App port (8004)")
     p.add_argument(
-        "--image-dir",
+        "--image-dir", metavar="PATH",
         default="images",
         help="Directory to write images in (images)")
     p.add_argument(
-        "--log-dir",
+        "--log-dir", metavar="PATH",
         default="logs",
         help="Directory to write log in (logs)")
     p.add_argument(
-        "--interval",
+        "--interval", metavar="SECONDS",
         default=5.0,
         type=float,
         help="Seconds between detections (5)")
     p.add_argument(
-        "--box-line-size",
+        "--box-line-size", metavar="N",
         default=4,
         type=int,
         help="Bounding box line width (4)")
