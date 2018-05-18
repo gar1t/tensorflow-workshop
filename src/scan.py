@@ -1,4 +1,4 @@
-"""Run an image collection app to save images from one or more cameras.
+"""Detect objects in camera images.
 """
 
 from __future__ import absolute_import
@@ -26,34 +26,6 @@ import detect
 log = logging.getLogger("scan")
 
 HOME = os.path.abspath(os.path.dirname(__file__))
-
-class DevServer(threading.Thread):
-
-    def __init__(self, host, port, app_port):
-        super(DevServer, self).__init__()
-        self.host = host
-        self.port = port
-        self.app_port = app_port
-        self._ready = False
-
-    def run(self):
-        server_bin = os.path.join(
-            HOME, "collect/node_modules/.bin/webpack-dev-server")
-        config = os.path.join(HOME, "collect/build/webpack.dev.conf.js")
-        args = [
-            server_bin,
-            "--host", self.host,
-            "--config", config,
-            "--progress",
-        ]
-        env = {
-            "HOST": self.host,
-            "PORT": str(self.port),
-            "APP_PORT": str(self.app_port),
-            "PATH": os.environ["PATH"],
-        }
-        p = subprocess.Popen(args, env=env)
-        p.wait()
 
 class PerformanceStats(object):
 
@@ -107,6 +79,7 @@ class Worker(threading.Thread):
 
     def __init__(self, camera, detector, log, working_dir, interval):
         super(Worker, self).__init__()
+        self.key = camera.key
         self.camera = camera
         self.detector = detector
         self.log = log
@@ -118,6 +91,7 @@ class Worker(threading.Thread):
             working_dir, "%s.jpg" % camera.key)
         self._detect_image_path = os.path.join(
             working_dir, "%s-detect.png" % camera.key)
+        self._detect_image_lock = threading.Lock()
 
     def run(self):
         while True:
@@ -128,7 +102,7 @@ class Worker(threading.Thread):
                 break
 
     def _snapshot_and_detect(self):
-        log.info("snapshot from %s", self.camera)
+        log.info("detecting from %s", self.camera)
         try:
             self._snapshot()
         except Exception as e:
@@ -151,21 +125,26 @@ class Worker(threading.Thread):
             _code, _out, msg = e.args[2]
         else:
             msg = str(e)
-        log.error("snapshotting %s: %s", self.camera, msg)
+        log.error("camera %s: %s", self.camera, msg)
 
     def _detect(self):
         with open(self._image_path, "rb") as f:
             image_bytes = f.read()
         _result, detect_image = self.detector.detect(image_bytes)
         print("TODO: log stuff from result")
-        self.detector.write_image(detect_image, self._detect_image_path)
+        with self._detect_image_lock:
+            self.detector.write_image(detect_image, self._detect_image_path)
+
+    def read_detect_image(self):
+        with self._detect_image_lock:
+            return open(self._detect_image_path, "rb").read()
 
     def _handle_detect_error(self, e):
         if self._stop_event.is_set():
             return
         if log.getEffectiveLevel() <= logging.DEBUG:
             log.exception("detect")
-        log.error("detect: %s", e)
+        log.error("detector: %s", e)
 
     def stop(self):
         self._stop_event.set()
@@ -188,42 +167,23 @@ def cameras():
         mimetype="application/json",
         headers=[("Access-Control-Allow-Origin", "*")])
 
-@app.route("/detect")
-def detect_():
-    app = flask.current_app
-    resp = {}
-    stats = PerformanceStats()
-    with app.detector as detector:
-        step = detector.step
-        detector.step = step + 1
-    for camera in app.cameras:
-        if not camera.enabled:
-            continue
-        log.info("Getting image from %s", camera.key)
-        with camera:
-            with stats.start("snapshot", camera.key):
-                try:
-                    image_bytes = camera.snapshot()
-                except IOError as e:
-                    log.error(
-                        "error getting image from %s: %s",
-                        camera.key, e)
-                    continue
-        with app.detector as detector:
-            log.info("Detecting objects in image from %s", camera.key)
-            with stats.start("detect", camera.key):
-                _detect_result, detect_image = detector.detect(image_bytes)
-        detect_image_bytes = detector.image_bytes(detect_image)
-        detect_image_encoded = base64.b64encode(detect_image_bytes).decode()
-        resp[camera.key] = {
-            "image": "data:image/png;base64," + detect_image_encoded
-        }
-    app.log.add_scalars(stats.scalars(), step)
-    app.log.flush()
-    return flask.Response(
-        json.dumps(resp),
-        mimetype="application/json",
-        headers=[("Access-Control-Allow-Origin", "*")])
+@app.route("/detected/<key>.png")
+def detected(key):
+    worker = _find_worker(key)
+    try:
+        image_bytes = worker.read_detect_image()
+    except IOError as e:
+        if e.errno != 2:
+            raise
+        flask.abort(404)
+    else:
+        return flask.Response(image_bytes, mimetype="image/png")
+
+def _find_worker(key):
+    for worker in flask.current_app.workers:
+        if worker.key == key:
+            return worker
+    flask.abort(404)
 
 def main():
     args = _parse_args()
@@ -233,7 +193,7 @@ def main():
     log = _init_log(args)
     workers = _start_workers(cameras, detector, log, args)
     _init_signal_handlers(workers)
-    _start_app(cameras, args)
+    _start_app(cameras, workers, args)
 
 def _init_logging(args):
     app_util.init_logging(args.debug)
@@ -287,8 +247,10 @@ def _stop(workers):
         w.join()
     sys.exit(0)
 
-def _start_app(cameras, args):
+def _start_app(cameras, workers, args):
     app.cameras = cameras
+    app.workers = workers
+    app.image_dir = os.path.abspath(args.image_dir)
     if args.dev:
         app_port = args.port + 1
         _start_dev_server(args, app_port)

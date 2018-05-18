@@ -9,7 +9,7 @@
           <v-container fluid>
             <v-layout row wrap>
               <v-flex
-                offset-sm1 sm10 offset-md0 md6 lg4
+                md12 lg6
                 v-for="key in cameras"
                 :key="key">
                 <camera :id="key" ref="cameras" />
@@ -48,23 +48,6 @@ export default {
       const vm = this;
       fetchData('/cameras', function(cameras) {
         vm.cameras = cameras;
-        vm.detect();
-      });
-    },
-
-    detect() {
-      const vm = this;
-      fetchData('/detect', function(resp) {
-        vm.$refs.cameras.forEach(camera => {
-          camera.clearImage();
-          const cameraResult = resp[camera.id];
-          if (cameraResult) {
-            camera.setImage(cameraResult.image);
-          } else {
-            console.warn('Missing result for ' + camera.id);
-          }
-        });
-        setTimeout(vm.detect, 0);
       });
     }
   }
