@@ -26,9 +26,9 @@ To summarize, commands must be run:
 
 Once logged in, always run the following:
 
-    source activate workshop
-    cd workshop/src
-    guild check
+    $ source activate workshop
+    $ cd workshop/src
+    $ guild check
 
 This will activate the environment, change to the workshop `src`
 directory, and run a check to verify your setup is correct.
@@ -242,10 +242,12 @@ training and another for validation.
 
     $ guild run pets-dataset:prepare
 
+**BACKGROUND:** Discuss train vs validation splits
+
 ### Fine tune our model using pets data
 
 With the prepared dataset, we can run the `finetune` operation on our
-pets Mask RCNN detector:
+pets detector:
 
     $ guild run pets-faster-rcnn-resnet101:finetune
 
@@ -287,6 +289,16 @@ inputs:
 
 **BACKGROUND:** Talk about the role of hyperparameters and augmentation
 
+As this is discussed, get the complete finetune run.
+
+Steps to import:
+
+    $ curl -L https://s3.amazonaws.com/guild-pub/tensorflow-workshop/archive/859c96044c8f11e8810e107b44920855.tar.gz \
+      > /tmp/859c96044c8f11e8810e107b44920855.tar.gz
+    $ tar -C ~/anaconda3/envs/workshop/.guild/runs -xf /tmp/859c96044c8f11e8810e107b44920855.tar.gz
+    $ echo 'guildfile:/home/ubuntu/workshop/src - pets-faster-rcnn-resnet101 finetune' \
+      > ~/anaconda3/envs/workshop/.guild/runs/859c96044c8f11e8810e107b44920855/.guild/attrs/opref
+
 When the discussions are wrapping up, we should have a full finetuned
 model (all 200K steps) on hand and ready for evaluation.
 
@@ -296,7 +308,14 @@ With our trained model(s) (i.e. what was completed in the previous
 section as well as the full finetuned model) we can evaluate how it
 does on data it hasn't seen.
 
+This command will evalute the latest finetune operation:
+
     $ guild run pets-faster-rcnn-resnet101:evaluate
+
+This command will evaluate the completed run (200K steps), provided it
+was imported (see above):
+
+    $ guild run pets-faster-rcnn-resnet101:evaluate trained-model=859c9604
 
 This will generate images with highlighted predicted objects and
 output an overal average precision for the model.
