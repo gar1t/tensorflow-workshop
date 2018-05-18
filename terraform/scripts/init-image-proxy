@@ -2,8 +2,10 @@
 
 PUMP_IMAGES=/tmp/pump-images
 GUILD_HOME=.guild
+RUNS_HOME=$GUILD_HOME/runs
 
 # directories
 
 mkdir -p $PUMP_IMAGES
 mkdir -p $GUILD_HOME
+mkdir -p $RUNS_HOME
