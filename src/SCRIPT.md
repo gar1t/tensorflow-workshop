@@ -103,6 +103,18 @@ The project is made up of the files in this directory
 which defines the models and operations that will be run throughout
 the workshop.
 
+#### History
+
+Explain the rationale of using TensorFlow for these models rather than
+Keras.
+
+- Started with Keras Mask RCNN implementation
+- Discovered the ecosystem of object detectors and was interested in
+  comparing
+- TensorFlow object detection is a more complete framework, having
+  virtaully all of the detector + backbone combinations of interest
+  (in fact these are configurable via a single text file)
+
 #### Project models
 
 There are three categories of models in the project:
@@ -128,6 +140,10 @@ To list operations:
 Operation names are displayed with their associated models. For
 example the `finetune` operation for the `pets-faster-rcnn-resnet101`
 model is listed as `pets-faster-rcnn-resnet101:finetune`.
+
+Some operation are implement directly by TensorFlow object detection
+(e.g. finetune and evaluate) and others are custom for this workshop
+to support the complete workflow.
 
 Each operation is described below in (roughly) the order in which it
 would typically be run:
