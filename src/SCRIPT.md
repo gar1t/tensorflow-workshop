@@ -1,8 +1,21 @@
 # Workshop script
 
-**TODO:** Number sections when finished.
+## Intro
 
-## Setup
+### Name tags
+
+- First name + Slack ID
+
+### Use of Slack
+
+- Questions and answers (crowdsource)
+- Helpers to wander and help
+- Useful links, commands, etc.
+- GPU host assignments
+- Use workshop GitHub project to ask questions we need to track past
+  the workshop
+
+https://github.com/gar1t/tensorflow-workshop/issues
 
 ### GPU hosts
 
@@ -451,12 +464,18 @@ First export our model:
 
 And then detect:
 
-    $ guild run cats-faster-rcnn-resnet101:detect
+    $ guild run cats-faster-rcnn-resnet101:detect images:collected-images=RUN
+
+We can specify the set of images to detect using
+`images:collected-images` (which is a reference to the resource
+required by the detect operation). By default the latest collect
+operation is used. In this case, we want to see how the model works
+with our original set of images.
 
 ## Improve our detector with more data
 
-We should now have a pretty good detector, even with 10 images! But we
-should also have seen some problems:
+We should now have a pretty good detector, even with a small number of
+images! But we should also have seen some problems:
 
 - False negatives where the object is in unseen positions or locations
 
@@ -469,8 +488,28 @@ model in the right direction.
 This will repeat the steps from the previous section to train a new
 model.
 
-Note that images and annotations can be reused from the previous
-labeling exercise.
+To collect new images:
+
+    $ guild run images:collect
+
+To label the new images:
+
+    $ guild run cats-dataset:label --restart RUN
+
+Note that images and annotations are reused from the previous label
+operation by restarting the operation.
+
+With the newly labeled data, we can create a new cats dataset:
+
+    $ guild run cats-dataset:prepare
+
+To train the model with this new data, we could start our finetune
+from the COCO starting point, or better yet, start it from our trained
+cats model!
+
+For that we need to specify an export:
+
+    $ guild run cats-faster-rcnn-resnet101:finetune
 
 We can also create a separate dataset for validating our trained
 model. These would be all new images, which the model hasn't seen, and
