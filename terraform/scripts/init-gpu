@@ -152,8 +152,7 @@ clear-known-hosts() {
 download-guild-resources() {
     guild_resource_urls=(
         https://github.com/tensorflow/models/archive/490813bdb3499290633919a9867eb0bb6d346d87.zip
-        http://download.tensorflow.org/models/object_detection/mask_rcnn_resnet101_atrous_coco_2018_01_28.tar.gz
-        http://storage.googleapis.com/download.tensorflow.org/models/object_detection/faster_rcnn_resnet101_coco_11_06_2017.tar.gz
+        http://download.tensorflow.org/models/object_detection/faster_rcnn_resnet50_coco_2018_01_28.tar.gz
         https://s3.amazonaws.com/guild-pub/oxford-pets/images.tar.gz
         https://s3.amazonaws.com/guild-pub/oxford-pets/annotations.tar.gz
         https://github.com/frederictost/images_annotation_programme/archive/cc3ab6037ee251642f1f7413a67949d2a3906425.zip

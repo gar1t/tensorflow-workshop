@@ -99,7 +99,7 @@ The MS COCO trained model should pick up various objects in the
 room. It should even find our target object, though not consistently
 or accurately (it will frequently misclassify).
 
-    $ guild run coco-faster-rcnn-resnet101:detect
+    $ guild run coco-faster-rcnn-resnet50:detect
 
 This operation will apply the trained model to detect objects in our
 collected images.
@@ -153,8 +153,8 @@ To list operations:
     $ guild ops
 
 Operation names are displayed with their associated models. For
-example the `finetune` operation for the `pets-faster-rcnn-resnet101`
-model is listed as `pets-faster-rcnn-resnet101:finetune`.
+example the `finetune` operation for the `pets-faster-rcnn-resnet50`
+model is listed as `pets-faster-rcnn-resnet50:finetune`.
 
 Some operation are implement directly by TensorFlow object detection
 (e.g. finetune and evaluate) and others are custom for this workshop
@@ -280,7 +280,7 @@ training and another for validation.
 With the prepared dataset, we can run the `finetune` operation on our
 pets detector:
 
-    $ guild run pets-faster-rcnn-resnet101:finetune
+    $ guild run pets-faster-rcnn-resnet50:finetune
 
 This start off a finetune operation, which is configured to run for
 200K steps. This will take far longer than we have time for (on the
@@ -327,7 +327,7 @@ Steps to import:
     $ curl -L https://s3.amazonaws.com/guild-pub/tensorflow-workshop/archive/859c96044c8f11e8810e107b44920855.tar.gz \
       > /tmp/859c96044c8f11e8810e107b44920855.tar.gz
     $ tar -C ~/anaconda3/envs/workshop/.guild/runs -xf /tmp/859c96044c8f11e8810e107b44920855.tar.gz
-    $ echo 'guildfile:/home/ubuntu/workshop/src - pets-faster-rcnn-resnet101 finetune' \
+    $ echo 'guildfile:/home/ubuntu/workshop/src - pets-faster-rcnn-resnet50 finetune' \
       > ~/anaconda3/envs/workshop/.guild/runs/859c96044c8f11e8810e107b44920855/.guild/attrs/opref
 
 When the discussions are wrapping up, we should have a full finetuned
@@ -345,12 +345,12 @@ does on data it hasn't seen.
 
 This command will evalute the latest finetune operation:
 
-    $ guild run pets-faster-rcnn-resnet101:evaluate
+    $ guild run pets-faster-rcnn-resnet50:evaluate
 
 This command will evaluate the completed run (200K steps), provided it
 was imported (see above):
 
-    $ guild run pets-faster-rcnn-resnet101:evaluate trained-model=859c9604
+    $ guild run pets-faster-rcnn-resnet50:evaluate trained-model=859c9604
 
 This will generate images with highlighted predicted objects and
 output an overal average precision for the model.
@@ -375,11 +375,11 @@ want to see how the detector works on our collected images.
 
 First export our model:
 
-    $ guild run pets-faster-rcnn-resnet101:export checkpoint-step=STEP
+    $ guild run pets-faster-rcnn-resnet50:export checkpoint-step=STEP
 
 To export the 200K steps model:
 
-    $ guild run pets-faster-rcnn-resnet101:export \
+    $ guild run pets-faster-rcnn-resnet50:export \
       checkpoint-step=200000 trained-model=859c9604
 
 NOTE: We need to explicitly specify a checkpoint step for export,
@@ -388,7 +388,7 @@ or use Guild View to view run files.
 
 And then detect:
 
-    $ guild run pets-faster-rcnn-resnet101:detect
+    $ guild run pets-faster-rcnn-resnet50:detect
 
 This will likely have become worse, since our object is not really a
 cat and our model has become a specialist in real pets!
@@ -438,7 +438,7 @@ custom images rather than a downloaded imageset.
 
 With our prepared cats dataset, we can fine tune:
 
-    $ guild run cats-faster-rcnn-resnet101:finetune
+    $ guild run cats-faster-rcnn-resnet50:finetune
 
 This operation should be run on the large GPU as the student servers
 will take too long. Our initial run should be time-boxed for 10-15
@@ -454,7 +454,7 @@ aren't used.
 Once we've trained our cats model on our novel dataset, we can
 evaluate it:
 
-    $ guild run cats-faster-rcnn-resnet101:evaluate
+    $ guild run cats-faster-rcnn-resnet50:evaluate
 
 This won't be much of a test since our validation set is very small,
 but it will give us some idea of how we're doing.
@@ -465,11 +465,11 @@ We can see how our model works on our initial images.
 
 First export our model:
 
-    $ guild run cats-faster-rcnn-resnet101:export checkpoint-step=STEP
+    $ guild run cats-faster-rcnn-resnet50:export checkpoint-step=STEP
 
 And then detect:
 
-    $ guild run cats-faster-rcnn-resnet101:detect images:collected-images=RUN
+    $ guild run cats-faster-rcnn-resnet50:detect images:collected-images=RUN
 
 We can specify the set of images to detect using
 `images:collected-images` (which is a reference to the resource
@@ -514,7 +514,7 @@ cats model!
 
 For that we need to specify an export:
 
-    $ guild run cats-faster-rcnn-resnet101:finetune pretrained-model=cats
+    $ guild run cats-faster-rcnn-resnet50:finetune pretrained-model=cats
 
 The pretrained model in this case uses the latest cats export (frozen
 inference graph) as its starting point.
@@ -533,7 +533,7 @@ ability to collect new data for both testing and improving models.
 
 With our final model in hand, we can run our catscan application:
 
-    $ guild run cats-faster-rcnn-resnet101:scan use-proxy=yes
+    $ guild run cats-faster-rcnn-resnet50:scan use-proxy=yes
 
 This will present a live view of the workshop environment (per the
 workshop cameras) with object detection and logging!
