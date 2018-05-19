@@ -444,6 +444,15 @@
   params:
     pipeline-config: faster_rcnn_resnet101_cats.config
     class-labels: labels.pbtxt
+  operations:
+    finetune:
+      flags:
+        pretrained-model:
+          choices:
+            - value: coco
+              description: Pretrained model using COCO dataset
+            - value: cats
+              description: Trained cats model
   resources:
     pipeline-config:
       sources:
@@ -470,3 +479,9 @@
       sources:
         - operation: export
           select: export/frozen_inference_graph.pb
+    pretrained-model-cats:
+      description: Trained cats model
+      path: pretrained
+      sources:
+        - operation: finetune
+          select: model/.*
