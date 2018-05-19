@@ -14,6 +14,8 @@
 - GPU host assignments
 - Use workshop GitHub project to ask questions we need to track past
   the workshop
+- Contributors welcome: submit one correct pull request (contribution
+  policy to be added)
 
 https://github.com/gar1t/tensorflow-workshop/issues
 
@@ -331,6 +333,10 @@ Steps to import:
 When the discussions are wrapping up, we should have a full finetuned
 model (all 200K steps) on hand and ready for evaluation.
 
+The instructor should routinely share runs by running:
+
+    $ guild push shared
+
 ### Evaluate trained model
 
 With our trained model(s) (i.e. what was completed in the previous
@@ -374,8 +380,7 @@ First export our model:
 To export the 200K steps model:
 
     $ guild run pets-faster-rcnn-resnet101:export \
-      checkpoint-step=200000 trained-model \
-      trained-model=859c9604
+      checkpoint-step=200000 trained-model=859c9604
 
 NOTE: We need to explicitly specify a checkpoint step for export,
 which we can get by running `guild runs info -F` on the finetune run,
@@ -509,7 +514,10 @@ cats model!
 
 For that we need to specify an export:
 
-    $ guild run cats-faster-rcnn-resnet101:finetune
+    $ guild run cats-faster-rcnn-resnet101:finetune pretrained-model=cats
+
+The pretrained model in this case uses the latest cats export (frozen
+inference graph) as its starting point.
 
 We can also create a separate dataset for validating our trained
 model. These would be all new images, which the model hasn't seen, and
