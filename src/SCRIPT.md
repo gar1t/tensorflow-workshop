@@ -525,7 +525,7 @@ ability to collect new data for both testing and improving models.
 
 With our final model in hand, we can run our catscan application:
 
-    $ guild run cats-faster-rcnn-resnet101:scan
+    $ guild run cats-faster-rcnn-resnet101:scan use-proxy=yes
 
 This will present a live view of the workshop environment (per the
 workshop cameras) with object detection and logging!
