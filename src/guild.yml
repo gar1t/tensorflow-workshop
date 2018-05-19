@@ -483,5 +483,5 @@
       description: Trained cats model
       path: pretrained
       sources:
-        - operation: finetune
-          select: model/.*
+        - operation: export
+          select: export/.*
