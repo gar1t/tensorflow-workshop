@@ -28,7 +28,7 @@ variable "us_east_2_standard_gpu_counts" {
     "one" = "0"
     "dev" = "0"
     "test" = "1"
-    "full" = "1"
+    "full" = "20"
   }
 }
 
