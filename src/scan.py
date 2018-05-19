@@ -150,7 +150,6 @@ class Worker(threading.Thread):
         with open(self._image_path, "rb") as f:
             image_bytes = f.read()
         _result, detect_image = self.detector.detect(image_bytes)
-        print("TODO: log stuff from result")
         with self._detect_image_lock:
             self.detector.write_image(detect_image, self._detect_image_path)
         self._maybe_archive(self._detect_image_path, "-detected")
