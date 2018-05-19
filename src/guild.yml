@@ -240,18 +240,18 @@
             - models-490813bdb3499290633919a9867eb0bb6d346d87/research/object_detection/data/mscoco_label_map.pbtxt
 
 # -------------------------------------------------------------------
-# coco-faster-rcnn-resnet101
+# coco-faster-rcnn-resnet50
 # -------------------------------------------------------------------
 
-- model: coco-faster-rcnn-resnet101
-  description: Detector using Faster RCNN with ResNet-101 trained on MS COCO
+- model: coco-faster-rcnn-resnet50
+  description: Detector using Faster RCNN with ResNet-50 trained on MS COCO
   extends: coco-model
   resources:
     frozen-model:
       sources:
-        - url: http://download.tensorflow.org/models/object_detection/mask_rcnn_resnet101_atrous_coco_2018_01_28.tar.gz
-          sha256: 67ac8d5f0974753e9a5b04d36376e20b3be55b5dcd6ce43bc25aed6c5583709d
-          select: mask_rcnn_resnet101_atrous_coco_2018_01_28/frozen_inference_graph.pb
+        - url: http://download.tensorflow.org/models/object_detection/faster_rcnn_resnet50_coco_2018_01_28.tar.gz
+          sha256: 0f898f96d6c416de192c516fb6fa773ae9f5ee253eb2ab4015445fbd6eb0ab76
+          select: faster_rcnn_resnet50_coco_2018_01_28/frozen_inference_graph.pb
 
 # ===================================================================
 # Pets (37 class dataset of labled dog and cat images)
@@ -316,14 +316,14 @@
             - models-490813bdb3499290633919a9867eb0bb6d346d87/research/object_detection/data/pet_label_map.pbtxt
 
 # -------------------------------------------------------------------
-# pets-faster-rcnn-resnet101
+# pets-faster-rcnn-resnet50
 # -------------------------------------------------------------------
 
-- model: pets-faster-rcnn-resnet101
-  description: Pets detector using Faster RCNN with ResNet-101
+- model: pets-faster-rcnn-resnet50
+  description: Pets detector using Faster RCNN with ResNet-50
   extends: pets-model
   params:
-    pipeline-config: faster_rcnn_resnet101_pets.config
+    pipeline-config: faster_rcnn_resnet50_pets.config
   operations:
     finetune:
       flags:
@@ -336,19 +336,13 @@
   resources:
     pipeline-config:
       sources:
-        - pipelines/faster_rcnn_resnet101_pets.config
+        - pipelines/faster_rcnn_resnet50_pets.config
     pretrained-model-coco:
       path: pretrained
       sources:
-        - url: http://storage.googleapis.com/download.tensorflow.org/models/object_detection/faster_rcnn_resnet101_coco_11_06_2017.tar.gz
-          sha256: f08a8475b1abae663bef51234545baa8c44972a8c16cfcaea0a41330426fed02
-          select: faster_rcnn_resnet101_coco_11_06_2017/.*
-    pretrained-model-kitti:
-      path: pretrained
-      sources:
-        - url: http://download.tensorflow.org/models/object_detection/faster_rcnn_resnet101_kitti_2018_01_28.tar.gz
-          sha256: 24e1e48760d40c429bd4689e61b9adcc8ce24a16aa17d2bfb70a486e4b259136
-          select: faster_rcnn_resnet101_kitti_2018_01_28/.*
+        - url: http://download.tensorflow.org/models/object_detection/faster_rcnn_resnet50_coco_2018_01_28.tar.gz
+          sha256: 0f898f96d6c416de192c516fb6fa773ae9f5ee253eb2ab4015445fbd6eb0ab76
+          select: faster_rcnn_resnet50_coco_2018_01_28/.*
 
 # ===================================================================
 # Cats dataset (2 class dataset of 'cat' and 'other')
@@ -433,16 +427,16 @@
         - file: cats/labels.pbtxt
 
 # -------------------------------------------------------------------
-# cats-faster-rcnn-resnet101
+# cats-faster-rcnn-resnet50
 # -------------------------------------------------------------------
 
-- model: cats-faster-rcnn-resnet101
-  description: Cat detector using Faster RCNN with ResNet-101
+- model: cats-faster-rcnn-resnet50
+  description: Cat detector using Faster RCNN with ResNet-50
   extends:
-    - pets-faster-rcnn-resnet101
+    - pets-faster-rcnn-resnet50
     - scan-support
   params:
-    pipeline-config: faster_rcnn_resnet101_cats.config
+    pipeline-config: faster_rcnn_resnet50_cats.config
     class-labels: labels.pbtxt
   operations:
     finetune:
@@ -456,7 +450,7 @@
   resources:
     pipeline-config:
       sources:
-        - pipelines/faster_rcnn_resnet101_cats.config
+        - pipelines/faster_rcnn_resnet50_cats.config
         - cats/labels.pbtxt
     class-labels:
       description: Class labels proto for cats
