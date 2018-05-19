@@ -74,6 +74,10 @@ export default {
       this.loaded = true;
       this.saving = false;
       this.error = null;
+      this.scheduleReload();
+    },
+
+    scheduleReload() {
       const vm = this;
       setTimeout(function() {
         vm.refresh(false);
@@ -81,12 +85,13 @@ export default {
     },
 
     onError(e) {
-      // ignore, assuming 404
+      // ignore error, assuming 404
+      this.scheduleReload();
     },
 
     onAbort(e) {
       console.log('ABORT', e);
-      this.error = e;
+      this.scheduleReload();
     }
   }
 };
